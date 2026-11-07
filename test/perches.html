@@ -2,7 +2,8 @@
 <style>body{margin:0;background:white;color:#222;font:20px Arial}#fixture{position:fixed;left:40px;top:80px;width:1000px;height:600px}.candidate{width:400px;height:80px}#results{position:absolute;top:700px;margin:20px;font:14px monospace}</style></head><body><div id="fixture"></div><pre id="results">Running…</pre>
 <script type="module">
 import {visiblePerches} from '../src/perches.js';
-import {createTurkeys} from '../dist/turkeys.mjs';
+import {createTurkeys as createScene} from '../dist/turkeys.mjs';
+const createTurkeys=(options={})=>createScene({cowboy:false,...options});
 const results = [], fixture = document.querySelector('#fixture');
 const config = {perchSelector:'.candidate',excludeSelector:'[data-turkey-ignore]',size:30};
 const assert = (condition,name) => {results.push({name,pass:!!condition});if(!condition)throw Error(name)};

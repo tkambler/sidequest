@@ -17,6 +17,10 @@ function rgba(value) {
 }
 
 export function visiblePerches(config) {
+  // The scene's input shield catches clicks, but its transparent surface is not
+  // page paint and must not hide the ledges beneath it from geometry scans.
+  const hitAt = config.overlay ? (x, y) => document.elementsFromPoint(x, y).find(element => element !== config.overlay) :
+    (x, y) => document.elementFromPoint(x, y);
   const result = [], styles = new Map(), visibility = new Map(), opacities = new Map(), textGeometry = new Map();
   const styleOf = element => {
     if (!styles.has(element)) styles.set(element, getComputedStyle(element));
@@ -114,14 +118,14 @@ export function visiblePerches(config) {
     for (let x = left; x < right; x += 8) {
       if (++samples > 8000) { flush(x); return; }
       const end = Math.min(x + 8, right), middle = (x + end) / 2;
-      const support = document.elementFromPoint(middle, y + .5);
+      const support = hitAt(middle, y + .5);
       let exposed = support && element.contains(support) && clearTo(support, element, middle, y + .5);
       if (blockers.some(blocker => !blocker.element.contains(element) &&
           end > blocker.rect.left && x < blocker.rect.right &&
           blocker.rect.top <= y + .5 && blocker.rect.bottom >= y - config.size)) exposed = false;
       if (exposed) {
         for (const height of [1, config.size / 2, config.size - 1]) {
-          const hit = document.elementFromPoint(middle, y - height);
+          const hit = hitAt(middle, y - height);
           if (hit && !clearTo(hit, element, middle, y - height)) { exposed = false; break; }
         }
       }

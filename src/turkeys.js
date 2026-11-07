@@ -1,5 +1,7 @@
 import { visiblePerches } from './perches.js';
-import { aimAt, muzzleAt, segmentHitTime } from './muskets.js';
+import { BALL_GRAVITY, projectilePoint, segmentHitTime } from './ballistics.js';
+import { createCowboy, cowboySVG } from './cowboy.js';
+export { cowboySVG };
 
 /** Pixel artwork is vector-based: crisp at 30px, without external assets. */
 export function turkeySVG() {
@@ -15,37 +17,6 @@ export function turkeySVG() {
     <path fill="#ce5140" d="M4 7h2v3H5v3H3v-2h1z"/><path fill="#eead41" d="M3 5h2v2H2V6h1z"/>
     <g class="foot foot-a" fill="#e9ad45"><path d="M9 21h1v3h-1zM7 24h4v1H7z"/></g>
     <g class="foot foot-b" fill="#e9ad45"><path d="M15 21h1v3h-1zM15 24h4v1h-4z"/></g>
-  </svg>`;
-}
-
-/** A slim pixel-art pilgrim in black, with a tall hat and carried musket. */
-export function pilgrimSVG() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34" shape-rendering="crispEdges" aria-hidden="true">
-    <path fill="#20231f" d="M13 1h5v2h1v6h4v1H8V9h4V3h1z"/>
-    <path fill="#454b3f" d="M13 1h5v1h-5zm-1 2h1v3h-1z"/>
-    <path fill="#e7e3cc" d="M12 7h7v2h-7z"/>
-    <path fill="#b9974f" d="M15 7h3v2h-3z"/><path fill="#34372f" d="M16 7h1v1h-1z"/>
-    <path fill="#95704e" d="M12 10h4v7h-3v-2h-1z"/>
-    <path fill="#d6a577" d="M14 10h4v3h1v1h-1v2h-3v-1h-1z"/>
-    <path fill="#edc393" d="M15 10h3v2h-2v2h-1zM18 13h1v1h-1z"/>
-    <path fill="#2c3029" d="M17 11h1v1h-1z"/>
-    <path fill="#20231f" d="M13 16h4v2h2v6h1v2h-4v-1h-2v1h-3v-2h1v-6h1z"/>
-    <path fill="#454b3f" d="M12 19h1v5h-1zm1-1h1v4h-1z"/>
-    <path fill="#ede9d6" d="M13 16h2v1h2v-1h1v2h-2v1h-1v-1h-2z"/>
-    <path fill="#30352c" d="M11 19h2v4h-1v2h-1z"/>
-    <path fill="#d6a577" d="M11 24h1v3h-2v-2h1z"/>
-    <path fill="#343a30" d="M17 19h2v3h1v2h-2v-2h-1z"/>
-    <path fill="#99957a" d="M13 24h5v1h-5z"/>
-    <path fill="#d1b575" d="M15 24h1v1h-1z"/>
-    <g class="foot foot-a"><path fill="#1b1e1a" d="M12 26h2v6h1v2h-5v-1h2z"/><path fill="#53584b" d="M12 27h1v5h-1z"/></g>
-    <g class="foot foot-b"><path fill="#242822" d="M17 26h2v6h2v2h-4z"/><path fill="#53584b" d="M18 27h1v5h-1z"/></g>
-    <g class="musket">
-      <path fill="#32372f" d="M15 21h3v1h4v1h4v1h4v1h4v2h-4v-1h-4v-1h-4v-1h-4v1h-3z"/>
-      <path fill="#95704e" d="M15 22h3v1h4v1h4v1h4v1h3v1h-4v-1h-4v-1h-4v-1h-3v1h-3z"/>
-      <path fill="#919784" d="M22 23h4v1h-4zm4 1h4v1h-4zm4 1h4v1h-4z"/>
-      <path fill="#edc393" d="M18 23h2v2h-2z"/>
-      <g class="muzzle-flash" style="display:none" fill="#f8d66d"><path d="M34 24h2v2h2v2h-2v2h-2v-2h-2v-2h2z"/><path fill="#fff5ce" d="M33 26h3v2h-3z"/></g>
-    </g>
   </svg>`;
 }
 
@@ -68,9 +39,9 @@ export function roastSVG() {
 }
 
 const defaults = {
-  characters: ['turkey'], maxTurkeys: 5, spawnInterval: [7000, 14000], lifetime: [45000, 90000],
+  maxTurkeys: 5, spawnInterval: [7000, 14000], lifetime: [45000, 90000],
   poopInterval: [12000, 26000], poopLifetime: 6000,
-  shotInterval: [6500, 12000], musketRange: 360, shotAccuracy: .65, roastLifetime: 8000,
+  cowboy: true, cowboySize: 48, cowboySpeed: 420, autoShotInterval: [6500, 12000], autoShotAccuracy: .6, roastLifetime: 8000,
   size: 30, speed: 20, jumpDistance: 130, jumpHeight: 72,
   perchSelector: 'h1,h2,h3,p,button,a,img,article,section,nav,header,footer,li,input,div,pre,blockquote,table,hr,[data-turkey-perch]',
   excludeSelector: '[data-turkey-ignore]', respectReducedMotion: true,
@@ -81,23 +52,21 @@ const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
 /** Creates an idle flock. Call start() after the page's body exists. */
 export function createTurkeys(options = {}) {
   const config = { ...defaults, ...options };
-  if (!Array.isArray(config.characters) || !config.characters.length ||
-      config.characters.some(character => !['turkey', 'pilgrim'].includes(character))) {
-    throw new TypeError('characters must be a nonempty array of "turkey" or "pilgrim"');
-  }
-  config.characters = [...config.characters];
-  for (const key of ['size', 'speed', 'jumpDistance', 'jumpHeight', 'poopLifetime', 'musketRange', 'roastLifetime']) {
+  for (const key of ['size', 'speed', 'jumpDistance', 'jumpHeight', 'poopLifetime', 'roastLifetime', 'cowboySize', 'cowboySpeed']) {
     if (!Number.isFinite(config[key]) || config[key] <= 0) throw new TypeError(`${key} must be positive`);
   }
-  if (!Number.isFinite(config.shotAccuracy) || config.shotAccuracy < 0 || config.shotAccuracy > 1) throw new TypeError('shotAccuracy must be between 0 and 1');
+  if (!Number.isFinite(config.autoShotAccuracy) || config.autoShotAccuracy < 0 || config.autoShotAccuracy > 1) throw new TypeError('autoShotAccuracy must be between 0 and 1');
+  if (config.onShot !== undefined && typeof config.onShot !== 'function') throw new TypeError('onShot must be a function');
+  if (config.onTurkeyHit !== undefined && typeof config.onTurkeyHit !== 'function') throw new TypeError('onTurkeyHit must be a function');
+  if (typeof config.cowboy !== 'boolean') throw new TypeError('cowboy must be a boolean');
   if (!Number.isInteger(config.maxTurkeys) || config.maxTurkeys < 1) throw new TypeError('maxTurkeys must be a positive integer');
-  for (const key of ['spawnInterval', 'lifetime', 'poopInterval', 'shotInterval']) {
-    if (['poopInterval', 'shotInterval'].includes(key) && config[key] === false) continue;
+  for (const key of ['spawnInterval', 'lifetime', 'poopInterval', 'autoShotInterval']) {
+    if (['poopInterval', 'autoShotInterval'].includes(key) && config[key] === false) continue;
     const v = config[key];
     if (!Array.isArray(v) || v.length !== 2 || !v.every(n => Number.isFinite(n) && n > 0) || v[1] < v[0]) throw new TypeError(`${key} must be [min, max] positive milliseconds`);
   }
-  let host, shadow, frame = 0, observer, resizeObserver, media;
-  let running = false, paused = false, destroyed = false, dirty = true, firstArrival = true;
+  let host, shadow, scenery, rider, frame = 0, observer, resizeObserver, media;
+  let running = false, paused = false, destroyed = false, dirty = true;
   let last = 0, elapsed = 0, nextSpawn = 0, nextScan = 0, surfaces = [], birds = [], droppings = [], shots = [];
   const floor = {};
   const reduced = () => config.respectReducedMotion && media?.matches;
@@ -105,7 +74,7 @@ export function createTurkeys(options = {}) {
   const blocked = () => document.hidden || paused || reduced();
 
   function scan() {
-    surfaces = [{ element: floor, anchor: floor, part: 'floor', left: 0, right: innerWidth, y: innerHeight, originLeft: 0 }, ...visiblePerches(config)];
+    surfaces = [{ element: floor, anchor: floor, part: 'floor', left: 0, right: innerWidth, y: innerHeight, originLeft: 0 }, ...visiblePerches({ ...config, overlay: host })];
     const matching = (old, x, size = config.size) => surfaces.find(s =>
       s.anchor === old.anchor && s.part === old.part && x >= s.left && x + size <= s.right);
     for (const bird of birds) {
@@ -133,8 +102,8 @@ export function createTurkeys(options = {}) {
   }
 
   function addBird(character) {
-    if (character !== undefined && !['turkey', 'pilgrim'].includes(character)) {
-      throw new TypeError('character must be "turkey" or "pilgrim"');
+    if (character !== undefined && character !== 'turkey') {
+      throw new TypeError('spawn() only adds turkeys');
     }
     if (!running || blocked() || birds.length >= config.maxTurkeys) return false;
     if (dirty) scan();
@@ -143,20 +112,15 @@ export function createTurkeys(options = {}) {
     element.className = 'bird';
     element.style.width = `${config.size}px`;
     element.style.height = `${config.size}px`;
-    character ??= firstArrival && config.characters.includes('turkey') ? 'turkey' :
-      config.characters.length === 1 ? config.characters[0] :
-        config.characters[Math.floor(Math.random() * config.characters.length)];
-    firstArrival = false;
+    character = 'turkey';
     element.dataset.character = character;
-    element.innerHTML = character === 'pilgrim' ? pilgrimSVG() : turkeySVG();
-    shadow.append(element);
+    element.innerHTML = turkeySVG();
+    scenery.append(element);
     const bird = {
       element, character, surface, x: range([surface.left, surface.right - config.size]), y: surface.y,
       direction: Math.random() < .5 ? -1 : 1, action: 'idle', until: elapsed + range([500, 1800]),
       born: elapsed, lifetime: range(config.lifetime), flight: null,
       nextPoop: character === 'turkey' && config.poopInterval ? elapsed + range(config.poopInterval) : Infinity,
-      nextShot: character === 'pilgrim' && config.shotInterval ? elapsed + range(config.shotInterval) : Infinity,
-      aim: null, musketAngle: 0,
     };
     birds.push(bird);
     paint(bird);
@@ -167,7 +131,7 @@ export function createTurkeys(options = {}) {
     const element = document.createElement('div');
     element.className = 'dropping';
     element.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5 4" shape-rendering="crispEdges"><path fill="#65503a" d="M2 0h1v1h1v1h1v2H0V2h1V1h1z"/><path fill="#ab9673" d="M2 0h1v1H2z"/></svg>';
-    shadow.append(element);
+    scenery.append(element);
     const x = bird.x + config.size * (bird.direction === 1 ? .25 : .75);
     droppings.push({ element, surface: bird.surface, offset: x - bird.surface.originLeft, born: elapsed });
     if (droppings.length > 60) droppings.shift().element.remove();
@@ -187,67 +151,19 @@ export function createTurkeys(options = {}) {
     });
   }
 
-  function targetAvailable(pilgrim, turkey) {
-    if (!birds.includes(turkey) || turkey.character !== 'turkey' || elapsed - turkey.born >= turkey.lifetime) return false;
-    const aim = aimAt(pilgrim, turkey, config.size);
-    return aim.distance > config.size && aim.distance <= config.musketRange && Math.abs(aim.elevation) <= 65;
-  }
-
-  function fire(pilgrim, aim) {
-    const accurate = Math.random() < config.shotAccuracy;
-    const spread = accurate ? range([-.8, .8]) :
-      Math.max(5, Math.atan2(config.size * 1.5, aim.distance) * 180 / Math.PI) * (Math.random() < .5 ? -1 : 1);
-    pilgrim.musketAngle += spread;
-    pilgrim.aim.firedAngle = pilgrim.musketAngle;
-    const muzzle = muzzleAt(aim, config.size, pilgrim.musketAngle);
-    const radians = (pilgrim.musketAngle + Math.atan2(3, 15) * 180 / Math.PI) * Math.PI / 180;
-    const element = document.createElement('div');
-    element.className = 'shot';
+  function fire({ muzzle, dx, dy, power, speed }) {
+    if (!running || blocked()) return;
+    const element = document.createElement('div'); element.className = 'shot';
     element.innerHTML = '<i class="pellet"></i><i class="smoke"></i>';
-    shadow.append(element);
-    element.dataset.outcome = 'flying';
+    element.dataset.outcome = 'flying'; element.dataset.power = power.toFixed(3);
+    element.firstElementChild.style.transform = `translate3d(${muzzle.x - 1.5}px,${muzzle.y - 1.5}px,0)`;
+    element.lastElementChild.style.transform = `translate3d(${muzzle.x - 3}px,${muzzle.y - 3}px,0) scale(.75)`;
+    element.lastElementChild.style.opacity = '.9';
+    scenery.append(element);
     shots.push({ element, born: elapsed, muzzle, checkedAge: 0, hit: false,
-      vx: aim.direction * Math.cos(radians) * 600, vy: Math.sin(radians) * 600,
-      duration: Math.min(1500, config.musketRange / 600 * 1000) });
+      vx: dx * speed, vy: dy * speed, gravity: BALL_GRAVITY, duration: 3000 });
     if (shots.length > 32) shots.shift().element.remove();
-    // Misses can startle a turkey; the ball decides whether it becomes a roast.
-    const turkey = pilgrim.aim.target;
-    if (!turkey.flight && turkey.action !== 'poop') {
-      turkey.action = 'flap'; turkey.until = elapsed + 700;
-    }
-  }
-
-  function updateMusket(pilgrim, dt) {
-    if (pilgrim.character !== 'pilgrim') return false;
-    if (pilgrim.aim && pilgrim.aim.firedAt === null && !targetAvailable(pilgrim, pilgrim.aim.target)) {
-      pilgrim.aim = null; pilgrim.action = 'idle'; pilgrim.until = elapsed + 400;
-    }
-    if (!pilgrim.aim && elapsed >= pilgrim.nextShot) {
-      pilgrim.nextShot = elapsed + range(config.shotInterval);
-      const target = birds.filter(turkey => targetAvailable(pilgrim, turkey))
-        .sort((a, b) => aimAt(pilgrim, a, config.size).distance - aimAt(pilgrim, b, config.size).distance)[0];
-      if (target) { pilgrim.aim = { target, fireAt: elapsed + 900, firedAt: null }; pilgrim.action = 'aim'; }
-    }
-    let desired = 0;
-    if (pilgrim.aim) {
-      const aim = aimAt(pilgrim, pilgrim.aim.target, config.size);
-      if (pilgrim.aim.firedAt === null) {
-        pilgrim.direction = aim.direction;
-        desired = aim.angle;
-        if (elapsed >= pilgrim.aim.fireAt && Math.abs(pilgrim.musketAngle - desired) < 3) {
-          fire(pilgrim, aim); desired = pilgrim.musketAngle; pilgrim.aim.firedAt = elapsed; pilgrim.action = 'fire';
-          pilgrim.nextShot = elapsed + range(config.shotInterval);
-        }
-      } else {
-        const since = elapsed - pilgrim.aim.firedAt;
-        if (since < 160) desired = pilgrim.aim.firedAngle - 9 * (1 - since / 160);
-        else pilgrim.action = 'reload';
-        if (since >= 1200) { pilgrim.aim = null; pilgrim.action = 'idle'; pilgrim.until = elapsed + 400; }
-      }
-    }
-    pilgrim.musketAngle += clamp(desired - pilgrim.musketAngle, -dt * .18, dt * .18);
-    pilgrim.element.querySelector('.musket').setAttribute('transform', `rotate(${pilgrim.musketAngle.toFixed(2)} 18 24)`);
-    return Boolean(pilgrim.aim);
+    try { config.onShot?.(); } catch (error) { console.error('TinyTurkeys onShot failed', error); }
   }
 
   function roast(turkey) {
@@ -272,7 +188,7 @@ export function createTurkeys(options = {}) {
   function paintShots() {
     shots = shots.filter(shot => {
       const age = elapsed - shot.born;
-      const position = ms => ({ x: shot.muzzle.x + shot.vx * ms / 1000, y: shot.muzzle.y + shot.vy * ms / 1000 });
+      const position = ms => projectilePoint(shot, ms);
       const from = position(shot.checkedAge), to = position(Math.min(age, shot.duration));
       if (!shot.hit && shot.checkedAge < shot.duration) {
         let victim = null, first = Infinity;
@@ -286,16 +202,21 @@ export function createTurkeys(options = {}) {
           });
           if (time !== null && time < first) { victim = turkey; first = time; }
         }
-        if (victim) { roast(victim); shot.hit = true; shot.element.dataset.outcome = 'hit'; }
+        if (victim) {
+          roast(victim); shot.hit = true; shot.element.dataset.outcome = 'hit';
+          try { config.onTurkeyHit?.(); } catch (error) { console.error('TinyTurkeys onTurkeyHit failed', error); }
+        }
       }
       shot.checkedAge = Math.min(age, shot.duration);
+      if (age > 0 && (to.x < -16 || to.x > innerWidth + 16 || to.y > innerHeight + 4 || to.y < -innerHeight)) shot.duration = Math.min(shot.duration, age);
       if (!shot.hit && age >= shot.duration) shot.element.dataset.outcome = 'miss';
-      if (age >= Math.max(shot.hit ? 0 : shot.duration, 650)) { shot.element.remove(); return false; }
+      if (age >= Math.max(shot.hit ? 0 : shot.duration, 850)) { shot.element.remove(); return false; }
       const pellet = shot.element.firstElementChild, smoke = shot.element.lastElementChild;
       pellet.style.transform = `translate3d(${to.x - 1.5}px,${to.y - 1.5}px,0)`;
       pellet.style.opacity = !shot.hit && age < shot.duration ? '1' : '0';
-      smoke.style.transform = `translate3d(${shot.muzzle.x}px,${shot.muzzle.y - age * .012}px,0) scale(${1 + age / 400})`;
-      smoke.style.opacity = Math.max(0, 1 - age / 650);
+      const velocity = Math.hypot(shot.vx, shot.vy) || 1;
+      smoke.style.transform = `translate3d(${shot.muzzle.x - 3 + shot.vx / velocity * age * .012}px,${shot.muzzle.y - 3 + shot.vy / velocity * age * .006 - age * .018}px,0) scale(${.75 + age / 400})`;
+      smoke.style.opacity = Math.max(0, 1 - age / 850) * .9;
       return true;
     });
   }
@@ -324,7 +245,7 @@ export function createTurkeys(options = {}) {
     bird.element.dataset.action = bird.action;
     // Mirror the artwork to face its direction of travel.
     bird.element.style.transform = `translate3d(${bird.x.toFixed(2)}px,${(bird.y - config.size).toFixed(2)}px,0)`;
-    bird.element.firstElementChild.style.transform = `scaleX(${bird.character === 'roast' ? 1 : bird.character === 'pilgrim' ? bird.direction : -bird.direction})`;
+    bird.element.firstElementChild.style.transform = `scaleX(${bird.character === 'roast' ? 1 : -bird.direction})`;
     const remaining = bird.lifetime - (elapsed - bird.born);
     bird.element.style.opacity = Math.max(0, Math.min(1, (elapsed - bird.born) / 400, remaining / 800));
   }
@@ -335,6 +256,7 @@ export function createTurkeys(options = {}) {
     const dt = last ? Math.min(now - last, 50) : 0;
     last = now;
     elapsed += dt;
+    rider?.update(dt, elapsed);
     if (dirty || elapsed >= nextScan) { scan(); nextScan = elapsed + 1200; }
     if (elapsed >= nextSpawn) { addBird(); nextSpawn = elapsed + range(config.spawnInterval); }
     birds = birds.filter(bird => {
@@ -346,7 +268,7 @@ export function createTurkeys(options = {}) {
         bird.x = f.fromX + (f.toX - f.fromX) * t;
         bird.y = f.fromY + (f.target.y - f.fromY) * (f.falling ? t * t : t) - (f.falling ? 0 : 4 * config.jumpHeight * .65 * t * (1 - t));
         if (t === 1) { dirty = true; bird.surface = f.target; bird.flight = null; bird.action = bird.character === 'roast' ? 'roast' : 'idle'; bird.until = elapsed + 500; }
-      } else if (bird.character !== 'roast' && !updateMusket(bird, dt)) {
+      } else if (bird.character !== 'roast') {
         if (elapsed >= bird.nextPoop) poop(bird);
         else if (elapsed >= bird.until) decide(bird);
         if (bird.action === 'walk') {
@@ -366,6 +288,7 @@ export function createTurkeys(options = {}) {
   function wake() {
     if (!running) return;
     const isBlocked = blocked();
+    rider?.suspend(isBlocked);
     host.hidden = Boolean(reduced());
     host.style.animationPlayState = isBlocked ? 'paused' : 'running';
     host.dataset.paused = String(isBlocked);
@@ -383,30 +306,49 @@ export function createTurkeys(options = {}) {
       document.querySelector(config.excludeSelector);
       media = window.matchMedia('(prefers-reduced-motion: reduce)');
       host = document.createElement('tiny-turkeys');
-      host.setAttribute('aria-hidden', 'true');
       host.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;overflow:hidden!important;display:block!important;';
       shadow = host.attachShadow({ mode: 'open' });
       shadow.innerHTML = `<style>
         :host([hidden]){visibility:hidden!important} .bird{position:absolute;left:0;top:0;pointer-events:none;will-change:transform;contain:layout style}
         svg{width:100%;height:100%;overflow:visible;image-rendering:pixelated;display:block}
-        .muzzle-flash{display:none}
-        [data-action="fire"] .muzzle-flash{display:block!important}
+        .cowboy{all:initial;box-sizing:border-box;position:absolute;bottom:0;left:0;z-index:20;display:block;cursor:pointer;pointer-events:auto;touch-action:none;user-select:none}
+        .cowboy:focus-visible{outline:none;filter:drop-shadow(0 0 3px #e4b655)}
+        .cowboy[data-controlled="true"]{filter:drop-shadow(0 0 2px #e4b655)}
+        .cowboy svg{pointer-events:none}
+        .cowboy-shield{position:absolute;inset:0;z-index:10;pointer-events:auto;cursor:crosshair;touch-action:none}
+        .cowboy-shield[hidden],.charge-meter[hidden],.cowboy-hint[hidden]{display:none}
+        .trajectory-preview{position:absolute;inset:0;z-index:11;pointer-events:none;overflow:hidden}
+        .trajectory-preview[hidden]{display:none}
+        .trajectory-preview path{fill:none;stroke-linecap:round;stroke-dasharray:3 8}
+        .trajectory-outline{stroke:#40372a;stroke-width:4;opacity:.45}
+        .trajectory-line{stroke:#e9bd5c;stroke-width:2}
+        .trajectory-tip{fill:#f4cf73;stroke:#51402b;stroke-width:1}
+        .charge-meter{box-sizing:border-box;position:absolute;z-index:21;width:44px;height:6px;border:1px solid #403c2c;background:#f4efda;pointer-events:none}
+        .charge-fill{display:block;height:100%;background:#d69a32}
+        .cowboy-hint{border-radius:3px;position:absolute;z-index:21;box-sizing:border-box;width:260px;max-width:calc(100vw - 16px);padding:5px 7px;background:#303b30;color:#fff5d8;font:10px/1.4 ui-monospace,monospace;pointer-events:none;text-align:center}
+        [data-walking="true"] .leg-a{animation:cowboy-step var(--stride-duration,.68s) steps(2,end) infinite}
+        [data-walking="true"] .leg-b{animation:cowboy-step var(--stride-duration,.68s) steps(2,end) infinite;animation-delay:calc(var(--stride-duration,.68s) * -.5)}
+        @keyframes cowboy-step{50%{transform:translateX(var(--stride-distance,1px)) translateY(-1px)}}
         .shot,.pellet,.smoke{position:absolute;left:0;top:0;pointer-events:none}
+        .shot{z-index:19}
         .pellet{width:3px;height:3px;border-radius:1px;background:#493b2d;box-shadow:1px 0 #e0cda0}
-        .smoke{width:5px;height:4px;background:#d8d5c8;box-shadow:2px -2px #e8e4d8,-2px 1px #b9b7ad}
+        .smoke{width:7px;height:6px;background:#c1b9a8;box-shadow:3px -3px #ded8ca,-3px 1px #a39d90;transform-origin:center}
         .dropping{position:absolute;left:0;top:0;width:5px;height:4px;pointer-events:none}
         [data-action="poop"] svg{translate:0 1px}
         .wing{transform-box:fill-box;transform-origin:80% 30%} .foot{transform-box:fill-box;transform-origin:center}
         [data-action="walk"] .foot-a{animation:step .24s steps(2,end) infinite}
         [data-action="walk"] .foot-b{animation:step .24s steps(2,end) -.12s infinite}
         [data-action="flap"] .wing,[data-action="jump"] .wing{animation:flap .16s steps(2,end) infinite}
-        [data-character="pilgrim"][data-action="walk"] .musket{animation:carry .48s steps(2,end) infinite}
-        @keyframes carry{50%{transform:translateY(-1px)}}
         :host([data-paused="true"]) *{animation-play-state:paused!important}
         @keyframes step{50%{transform:translateY(-2px) rotate(20deg)}}
         @keyframes flap{50%{transform:rotate(-65deg) translateY(-2px)}}
       </style>`;
       document.body.append(host);
+      scenery = document.createElement('div'); scenery.setAttribute('aria-hidden', 'true'); shadow.append(scenery);
+      if (config.cowboy) rider = createCowboy({ root: shadow, size: config.cowboySize, speed: config.cowboySpeed, fire,
+        autoShotInterval: config.autoShotInterval, autoShotAccuracy: config.autoShotAccuracy,
+        targets: () => birds.filter(bird => bird.character === 'turkey' && elapsed - bird.born < bird.lifetime)
+          .map(bird => ({ id: bird, x: bird.x + config.size / 2, y: bird.y - config.size * .55, radius: config.size * .35 })) });
       observer = new MutationObserver(records => {
         if (records.some(r => r.target !== host)) invalidate();
       });
@@ -419,7 +361,7 @@ export function createTurkeys(options = {}) {
       window.addEventListener('scroll', invalidate, true);
       document.addEventListener('visibilitychange', wake);
       media.addEventListener('change', wake);
-      running = true; paused = false; dirty = true; firstArrival = true; last = 0; nextSpawn = elapsed;
+      running = true; paused = false; dirty = true; last = 0; nextSpawn = elapsed;
       wake();
       return api;
     },
@@ -434,10 +376,11 @@ export function createTurkeys(options = {}) {
       window.removeEventListener('scroll', invalidate, true);
       document.removeEventListener('visibilitychange', wake);
       media?.removeEventListener('change', wake);
-      host?.remove(); birds = []; surfaces = []; droppings = []; shots = [];
+      rider?.destroy(); rider = null; host?.remove(); birds = []; surfaces = []; droppings = []; shots = [];
       return api;
     },
     destroy() { api.stop(); destroyed = true; },
+    get controlled() { return rider?.controlled ?? false; },
     get count() { return birds.length; },
     get running() { return running; },
     get paused() { return paused; },

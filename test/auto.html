@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Autonomous cowboy checks</title><style>body{margin:0;background:#faf7ef;font:14px monospace}#ledge{position:fixed;left:650px;top:calc(100vh - 180px);width:300px;height:40px;background:#ccc}pre{margin:100px 30px}</style></head><body><button id="page-button">Page button</button><div id="ledge"></div><pre id="results">Running…</pre>
+<script type="module">
+import {createTurkeys} from '../dist/turkeys.mjs';
+const results=[],random=Math.random,wait=ms=>new Promise(r=>setTimeout(r,ms));
+const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
+const until=async(predicate,timeout=3000)=>{for(let t=0;t<timeout;t+=20){if(predicate())return true;await wait(20)}return false};
+let flock,clicks=0,hitCalls=0,shotCalls=0;document.querySelector('#page-button').onclick=()=>clicks++;
+const root=()=>document.querySelector('tiny-turkeys').shadowRoot,rider=()=>root().querySelector('.cowboy');
+async function setup(options={}){
+  hitCalls=0;shotCalls=0;Math.random=()=>.75;
+  flock=createTurkeys({onShot:()=>shotCalls++,onTurkeyHit:()=>hitCalls++,maxTurkeys:1,autoShotInterval:[400,400],autoShotAccuracy:1,perchSelector:'#ledge',poopInterval:false,lifetime:[100000,100000],spawnInterval:[100000,100000],respectReducedMotion:false,...options});
+  flock.start();await wait(80);
+}
+try{
+  await setup();
+  assert(await until(()=>rider().dataset.action==='aim'),'patrolling cowboy pauses to aim at a live turkey');
+  assert(!flock.controlled,'autonomous aim does not activate player control');
+  assert(shotCalls===0,'aiming alone does not trigger the shot callback');
+  document.querySelector('#page-button').click();assert(clicks===1,'page clicks remain active during autonomous aim');
+  assert(await until(()=>root().querySelector('.shot')),'cowboy fires autonomously after aiming');
+  const shot=root().querySelector('.shot'),smoke=shot.querySelector('.smoke');
+  assert(rider().dataset.lastShotMode==='auto','shot is marked as autonomous');
+  assert(shotCalls===1,'firing invokes the shot callback once');
+  assert(Number(smoke.style.opacity)>0&&getComputedStyle(smoke).width==='7px','autonomous shot emits a visible pixel smoke puff');
+  const smokePosition=smoke.style.transform;await wait(100);
+  assert(smoke.style.transform!==smokePosition,'barrel smoke expands and drifts upward');
+  assert(await until(()=>root().querySelector('[data-character="roast"]')),'accurate autonomous shot can hit and roast a turkey');
+  assert(shot.dataset.outcome==='hit','autonomous hit uses real projectile collision');
+  assert(hitCalls===1,'hit callback fires once when the turkey becomes a roast');
+  await wait(1000);
+  assert(!root().querySelector('.shot'),'autonomous smoke and ball effects clean up');
+  assert(hitCalls===1,'existing roast does not trigger repeated hit callbacks');
+  assert(!root().querySelector('.trajectory-preview')||root().querySelector('.trajectory-preview').hasAttribute('hidden'),'player trajectory remains hidden during autonomous shooting');
+  flock.destroy();
+  await setup({autoShotAccuracy:0});
+  assert(await until(()=>root().querySelector('.shot')),'inaccurate autonomous aim still fires a ball');
+  const miss=root().querySelector('.shot');
+  const callbacksAtMissFire=shotCalls;
+  assert(await until(()=>miss.dataset.outcome==='miss'),'wide autonomous shot can miss');
+  assert(callbacksAtMissFire===1,'missed shots still invoke the shot callback when fired');
+  assert(root().querySelector('[data-character="turkey"]')&&!root().querySelector('[data-character="roast"]'),'missed turkey stays alive');
+  assert(hitCalls===0,'misses do not trigger the hit callback');flock.destroy();
+  await setup();assert(await until(()=>rider().dataset.action==='aim'),'new patrol begins another aim');
+  rider().click();await wait(900);
+  assert(flock.controlled&&!root().querySelector('.shot'),'taking control cancels a pending autonomous shot');
+  assert(shotCalls===0,'canceling an aim does not invoke the shot callback');
+  window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+  assert(!flock.controlled,'Escape returns cowboy to autonomous patrol');
+  assert(await until(()=>root().querySelector('.shot')),'autonomous shots resume after control mode ends');flock.destroy();
+  await setup({autoShotInterval:false});await wait(1200);
+  assert(!root().querySelector('.shot')&&rider().dataset.action==='patrol','autonomous shooting can be disabled');flock.destroy();
+  await setup({lifetime:[150,150]});await wait(1200);
+  assert(flock.count===0&&!root().querySelector('.shot'),'cowboy does not shoot at missing or expired targets');flock.destroy();
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{Math.random=random;flock?.stop()}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Autonomous cowboy':'FAIL — Autonomous cowboy';
+</script></body></html>

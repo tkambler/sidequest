@@ -13,14 +13,14 @@
       <div class="intro-copy"><p class="eyebrow"><span class="little-dot"></span> A seasonal, very unserious JavaScript library</p>
       <h1 id="headline">Your website.<br>A little more <em>gobble.</em></h1>
       <p class="lede">Tiny turkeys. Big holiday energy. Let a few pixel-art visitors wander, flap, and hop around your webpage.</p>
-      <div class="character-picker"><label for="characters">Visitors</label><select id="characters"><option value="both">Turkeys + pilgrims</option><option value="turkey">Just turkeys</option><option value="pilgrim">Just pilgrims</option></select></div>
+      <p class="rider-instructions"><strong>Meet your tiny trail buddy.</strong> Click the cowboy to take control. A / D move, the mouse aims, and holding then releasing a click fires a charged shot. Click him again or press Escape to return to patrol. Page clicks are blocked in control mode.</p>
       <div class="actions"><button class="primary" id="toggle" aria-pressed="false"><span class="button-icon" aria-hidden="true">✦</span> Release the visitors <span aria-hidden="true">↗</span></button><span class="side-note">No feeding required.</span></div>
       <p class="live-note" id="status" role="status">The flock is waiting in the wings.</p>
       </div>
-      <div class="specimen" role="img" aria-label="Pixel-art visitors, shown larger than their actual 30-pixel size">
+      <div class="specimen" role="img" aria-label="Pixel-art turkey and cowboy, shown enlarged">
         <div class="specimen-top"><span>MEET YOUR NEW SITE VISITOR</span><span>Fig. 01</span></div>
-        <div class="specimen-bird" aria-hidden="true"></div>
-        <div class="specimen-caption"><span class="annotation">a distinguished<br>little duo</span><span class="size-label">30 × 30 px<br><span>actual size, approximately</span></span></div>
+        <div class="specimen-bird duo" aria-hidden="true"></div>
+        <div class="specimen-caption"><span class="annotation">a gobbler &amp;<br>a little gunslinger</span><span class="size-label">30 px turkeys<br><span>one 48 px cowboy</span></span></div>
       </div>
     </section>
     <section class="playground" aria-labelledby="playground-title">
@@ -33,15 +33,13 @@
         <span class="habitat-note">Psst. They'll explore the rest of this page, too.</span>
         <button id="add" class="add-button" disabled>+ Invite one more</button>
       </div>
-      <div class="traits"><p><span aria-hidden="true">↟</span> Walks on your real page elements</p><p><span aria-hidden="true">⌁</span> Flaps, hops &amp; minds its business</p><p><span aria-hidden="true">♡</span> Leaves every click to you</p></div>
+      <div class="traits"><p><span aria-hidden="true">↟</span> Walks on your real page elements</p><p><span aria-hidden="true">⌁</span> One cowboy. You’re in control.</p><p><span aria-hidden="true">♡</span> Click the cowboy to play</p></div>
     </section>
     <section id="use-it" class="installation" aria-labelledby="install-title"><div><p class="eyebrow">A tiny addition</p><h2 id="install-title">Just add turkeys.</h2><p>No dependencies. No images to load.<br>One script and a little Thanksgiving spirit.</p><a class="text-link" href="../README.md">Read the full field guide <span aria-hidden="true">↗</span></a></div>
       <div class="code-panel"><div class="code-header"><span>YOUR PAGE · HTML</span><button id="copy">Copy snippet</button></div><pre tabindex="0" role="region" aria-label="Installation code"><code><span class="code-muted">&lt;!-- Add before &lt;/body&gt; --&gt;</span>
 &lt;script src="./turkeys.js"&gt;&lt;/script&gt;
 &lt;script&gt;
-  <span class="code-gold">const</span> flock = TinyTurkeys.createTurkeys({
-    characters: <span id="snippet-characters">['turkey', 'pilgrim']</span>
-  });
+  <span class="code-gold">const</span> flock = TinyTurkeys.createTurkeys();
   flock.<span class="code-gold">start</span>();
 &lt;/script&gt;</code></pre><div class="code-foot">Serve <a href="../dist/turkeys.js" download>turkeys.js ↓</a> alongside your page. You're ready.</div></div>
     </section>

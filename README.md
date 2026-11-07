@@ -1,26 +1,62 @@
 # Tiny Turkeys
 
-An opt-in Thanksgiving easter egg for any web page. Little 30 × 30 pixel-art turkeys stroll along element tops, flap their wings, and hop onto nearby ledges. Inspired by a classic blue-headed, brown-tailed pixel turkey.
+An opt-in Thanksgiving easter egg for any web page. Tiny pixel-art turkeys explore
+visible ledges, flap, hop, and occasionally leave little droppings. One cowboy
+patrols the bottom of the viewport. Click him to take control.
 
-No dependencies, network requests, external images, sound, or framework required. The overlay ignores pointer events and stays out of the accessibility tree. Nothing happens until you call `start()`.
+No runtime dependencies or external artwork. Supports modules and a plain script.
 
-## Try it
+## Demo
 
 ```sh
 npm run dev
 ```
 
-Open **http://localhost:4173/demo/** and choose **Release the visitors**. The supplied gobble clip plays once at 50% volume when you turn them on. Stop them with **Gather the visitors**. The clip is stored in `demo/assets/gobble1.mp3`; sound is wired to the demo button, so the library itself remains silent.
+Open **http://localhost:4173/demo/** and choose **Release the visitors**. The supplied
+gobble clip plays once at 50% volume. **Gather the visitors** removes the scene.
+The startup sound lives in `demo/assets/gobble1.mp3`. Each turkey hit plays
+`demo/assets/gobble2.mp3` once at **20% volume**, for player and autonomous shots.
+Each fired shot also plays `demo/assets/revolver-single-shot.mp3` at **20% volume**.
+Misses do not play the hit gobble. Audio is wired in the demo; the library itself stays silent.
+Use the optional `onShot` and `onTurkeyHit` callbacks to add your own sounds or responses.
+
+## Cowboy controls
+
+- There is exactly one cowboy per flock, separate from the turkey visitor cap.
+- He slowly patrols left and right along the viewport floor and occasionally pauses to aim at a turkey and take a shot. Some shots hit; others miss.
+- Click the cowboy to enter control mode. **A / D** move him, and the rifle follows
+  your mouse in any direction, including behind him. Movement builds speed with
+  acceleration, coasts briefly on release, and brakes before reversing. His leg
+  animation quickens with actual speed and slows as he comes to rest.
+- Hold the primary mouse button to charge the shot. The meter above the cowboy
+  fills over **1.5 seconds**. Release to fire one ball. A longer charge gives the
+  ball more speed and range; gravity bends its flight.
+- While charging, a dotted gold arc extends from the barrel and grows with power.
+  It tracks the mouse and previews the opening portion of the ball's flight using
+  the same speed and gravity as the real shot. The small endpoint dot marks the
+  end of the preview, not a guaranteed impact. The guide stops at the viewport
+  edge or floor and disappears when you release, cancel, pause, or leave control.
+- Page clicks, double clicks, auxiliary clicks, and context menus are blocked in
+  control mode. A transparent input shield also covers embedded page content.
+- **Click the cowboy again or press Escape** to return to patrol. That click does not fire. The
+  same cowboy button supports keyboard activation and has a visible focus ring.
+- Losing focus, pausing, hiding the tab, or enabling reduced motion cancels any
+  charge and clears held keys. No surprise shot fires when you return.
+
+Balls use swept collision checks against moving turkeys. A hit replaces the live
+sprite with a stationary roast on a platter. An airborne roast falls to a visible
+ledge below. Roasts fade after eight active seconds and free their visitor slot.
+Shots are controlled by the player in control mode. Outside control mode, the cowboy occasionally shoots at reachable turkeys. Taking control cancels any pending autonomous shot. Both shot types produce an expanding pixel smoke puff at the muzzle.
 
 ## Add to any page
 
-Copy `dist/turkeys.js` alongside your page and add this before `</body>`:
+Copy `dist/turkeys.js` alongside your page and place this before `</body>`:
 
 ```html
 <script src="./turkeys.js"></script>
 <script>
   const flock = TinyTurkeys.createTurkeys();
-  // Call this from your own easter-egg button or holiday toggle:
+  // Start from your own holiday toggle:
   flock.start();
 </script>
 ```
@@ -36,123 +72,94 @@ document.querySelector('#holiday-mode').addEventListener('click', () => {
 });
 ```
 
-The package exports the same `createTurkeys` function for bundlers, with TypeScript declarations included. `turkeySVG()` returns the decorative pixel-art SVG used in the demo.
+Only the cowboy accepts clicks during patrol; the rest of the overlay ignores
+pointer events. Turkeys and effects stay out of the accessibility tree. The
+cowboy is an accessible button. Nothing mounts until `start()`.
 
-## Pilgrims and mixed visitors
-
-Add slim pixel-art pilgrims with black coats, tall buckled hats, white collars, boots, and carried muskets:
-
-```js
-const flock = createTurkeys({ characters: ['turkey', 'pilgrim'] });
-flock.start();
-flock.spawn('pilgrim'); // Invite a particular character immediately
-```
-
-Use `characters: ['pilgrim']` for pilgrims alone. The default remains `['turkey']`.
-When the list includes turkeys, each fresh start begins with a turkey. Later arrivals choose randomly from the configured list, sharing the same visitor cap. An explicit `spawn(character)` request honors the character you choose.
-Pilgrims walk and hop between ledges, with stepping boots and a gently bobbing carried
-musket. With turkeys nearby, pilgrims turn toward the nearest one, rotate their
-muskets up or down to track it, and occasionally attempt a cartoon shot. Each shot
-has a tiny flash, drifting smoke, a moving pellet, recoil, and a reload pause.
-Missed turkeys give a startled flap. A musket ball that hits a turkey replaces it with a pixel-art roast on a white platter. Turkeys retain their wing flaps. `pilgrimSVG()` exports the decorative artwork
-for previews, just like `turkeySVG()`.
-
-## Controls
+## API
 
 ```js
-flock.start();   // First arrival on the next animation frame, then occasional arrivals
-flock.spawn();   // Add one now; returns false if stopped, paused, full, or motion-blocked
-flock.pause();   // Freeze visitors and their lifetimes
-flock.resume();  // Continue
-flock.stop();    // Remove visitors and all animation work, observers, and listeners
-flock.start();   // Restart a stopped flock
-flock.destroy();// Permanently stop; future start() calls throw
-flock.count;    // Current number of visitors
-flock.running;  // Started, including while paused or motion-blocked
-flock.paused;   // Explicitly paused
+flock.start();    // Start a new scene, or resume an already running one
+flock.spawn();    // Invite a turkey immediately; returns success/failure
+flock.pause();    // Freeze the scene and cancel held controls
+flock.resume();
+flock.stop();     // Remove DOM, observers, effects, and every input listener
+flock.start();    // Fresh scene, fresh cowboy in patrol mode
+flock.destroy(); // Stop permanently; future start() calls throw
+flock.count;     // Turkeys + roasts, excluding the cowboy
+flock.running;
+flock.paused;
+flock.controlled;// Whether the cowboy is under player control
 ```
 
-`start`, `stop`, `pause`, and `resume` return the flock for chaining. Call `start()` after `document.body` exists. Each instance owns and removes only its own overlay.
+`start`, `stop`, `pause`, and `resume` return the flock for chaining. Call `start()`
+after `document.body` exists. Each instance owns its own scene and cleans it up.
+`turkeySVG()`, `cowboySVG()`, and `roastSVG()` export self-contained decorative
+SVG strings for previews. TypeScript declarations are included.
 
 ## Options
 
 ```js
 const flock = createTurkeys({
   maxTurkeys: 5,
-  spawnInterval: [7000, 14000], // Random arrival interval, ms
-  lifetime: [45000, 90000],    // Random visitor lifetime, active ms
-  poopInterval: [12000, 26000], // Occasional turkey droppings; false disables
-  poopLifetime: 6000,         // Droppings fade away after this many active ms
-  shotInterval: [6500, 12000], // Pilgrim shot attempts; false disables
-  musketRange: 360,           // Maximum target distance, CSS px
-  shotAccuracy: .65,          // Chance of an accurate shot, 0–1
-  roastLifetime: 8000,        // Roast stays on the ledge, then fades out
-  size: 30,                  // CSS px
-  speed: 20,                 // Walking px per second
-  jumpDistance: 130,         // Maximum ledge distance, px
-  jumpHeight: 72,            // Maximum vertical ledge separation, px
+  spawnInterval: [7000, 14000],
+  lifetime: [45000, 90000],    // Live turkey lifetime, active ms
+  poopInterval: [12000, 26000], // false disables droppings
+  poopLifetime: 6000,
+  cowboy: true,              // false for decorative turkeys only
+  cowboySize: 48,            // Cowboy sprite width, CSS px
+  autoShotInterval: [6500, 12000], // false disables autonomous shots
+  autoShotAccuracy: .6,       // Chance of accurate aim outside control mode
+  cowboySpeed: 420,          // Maximum player speed, px/second; patrol is 16 px/second
+  roastLifetime: 8000,
+  size: 30,                 // Turkey sprite size, CSS px
+  speed: 20,                // Turkey walking speed, px/second
+  jumpDistance: 130,
+  jumpHeight: 72,
   respectReducedMotion: true,
 });
 ```
 
-Turkeys use exposed, painted surfaces: contrasting filled boxes, visible solid top
-borders, and the upper text line of transparent elements. Text ledges follow the
-text's width and font ascent, excluding container padding and unused margins.
-Covered spans, insufficient headroom, rounded corners, hidden content, and rotated
-or scaled elements are skipped. Empty layout boxes and borders or text matching
-their backdrop do not create perches.
+Turkeys use contrasting filled edges, visible solid top borders, and exposed
+upper text lines. Text perches exclude padding and unused margins. Covered spans,
+rounded corners, insufficient headroom, invisible text, and rotated or scaled
+surfaces are skipped. The viewport floor remains a fallback.
 
-Candidates include headings, paragraphs, buttons, links, cards and other `div`
-elements, sections, navigation, headers, footers, list items, inputs, code blocks,
-tables, horizontal rules, and elements marked `data-turkey-perch`. The marker and
-`perchSelector` select candidates; they never bypass visibility checks. Images need
-a visible border or contrasting background; transparent image silhouettes are not
-inferred. The bottom of the viewport remains the fallback walking surface.
-Override `perchSelector` to pick a smaller set:
-
-```js
-createTurkeys({ perchSelector: '[data-turkey-perch], button' }).start();
-```
-
-Add `data-turkey-ignore` to an element to exclude it and its descendants, or supply your own `excludeSelector`. Invalid numbers, ranges, or selectors throw early.
-
-Turkeys occasionally pause to leave a tiny pixel dropping behind them. Droppings
-stay attached to their ledge during scrolling, fade away after six active seconds,
-and disappear if their ledge goes away. Pausing, hidden tabs, and reduced-motion
-preferences freeze their lifetimes too. Only turkeys do this; pilgrims keep walking.
-Set `poopInterval: false` to disable. `stop()` and `destroy()` remove every dropping.
-At most 60 droppings are kept per flock.
-
-Pilgrims only target live turkeys within `musketRange` and an aiming elevation of
-±65 degrees. Shots follow the direction of the musket when it fires, so a moving
-turkey can dodge them. About 65% of shots aim accurately by default; others have a
-wider angular spread. Actual swept ball collisions determine hits, including
-moving turkeys. A hit replaces the live sprite with a stationary roast, disables
-its walking and droppings, and removes it from future targeting. An airborne
-roast falls to the first visible ledge below it. Roasts fade after eight active
-seconds and share the visitor cap. `roastSVG()` exports the platter artwork.
-Attempts, aiming,
-reloads, pellets, and smoke all freeze when paused, motion-blocked, or hidden;
-`stop()` clears every effect. At most 32 shot effects are retained per flock.
+Override `perchSelector` to narrow candidates, for example
+`'[data-turkey-perch],button,h1,h2'`. The `data-turkey-perch` marker never bypasses
+visibility checks. `data-turkey-ignore` excludes an element and its descendants;
+`excludeSelector` can replace it. Images need a border or contrasting background.
 
 ## Behavior and limits
 
-- Movement runs in one `requestAnimationFrame` loop per flock; sprite animation and styles are isolated in Shadow DOM.
-- Positions use viewport coordinates. Scroll, resize, DOM changes, and periodic geometry checks update the ledges. A visitor whose ledge disappears is moved to the viewport floor.
-- Lifetimes and arrivals freeze in hidden tabs and during manual pauses. Reduced-motion requests hide and freeze the flock, including when the preference changes live.
-- Ledges use conservative paint checks and hit-test samples along the edge and above it. Text is treated as a line roof, not individual glyph contours. This is playful decoration, not pixel-perfect collision physics: image alpha, gradients without a solid fill, pseudo-elements, masks, iframe contents, and shadow-root contents are not inferred. Rotated or scaled elements are skipped. Painted pointer-transparent overlays matching the candidate selector reserve their rectangular area conservatively.
-- Each geometry scan considers at most 1,500 candidates, 6,000 text nodes, and 8,000 edge samples. Use a narrow selector on very large pages. Visitors and droppings are revalidated against the exposed span, so a newly covered or removed perch cannot remain a walking surface.
-- The overlay uses a high z-index; browser top-layer dialogs and popovers can still appear above it. Host styles using `!important` or strict Content Security Policies may need integration-specific changes. The library injects inline styles; include it in your CSP plan if your site restricts these.
-- Supported target: modern browsers with ES modules, Shadow DOM, MutationObserver, and `MediaQueryList.addEventListener`.
+- A single animation loop per flock handles movement, charges, ball flight,
+  collisions, and fading. Lifetimes freeze when the scene is paused or hidden.
+- The cowboy stays at the viewport floor through scrolling and resizing. Movement
+  clamps at both edges, including on narrow screens.
+- Droppings follow their ledge, fade after six active seconds, and disappear if
+  their ledge goes away. At most 60 droppings and 32 shot effects are retained.
+- Perches are conservative approximations, not pixel-perfect glyph contours.
+  Image alpha, gradients without a fill, masks, pseudo-elements, iframe contents,
+  and shadow-root contents are not inferred. Geometry scans consider at most
+  1,500 candidate elements, 6,000 text nodes, and 8,000 edge samples.
+- Styles are isolated in Shadow DOM. Strict CSPs may need integration changes
+  because the library injects inline styles. Browser top-layer UI can appear
+  above the overlay. Previously registered window capture handlers may observe
+  an input before the library blocks its propagation.
+- Modern browsers with ES modules, Shadow DOM, Pointer Events, AbortController,
+  canvas text measurement, and MediaQueryList.addEventListener are supported.
 
 ## Development
 
 ```sh
-npm run build  # Build module + classic script, no build dependencies
-npm test       # Option validation and distribution checks
-npm run dev    # Serve the demo and browser test page on port 4173
+npm run build
+npm test
+npm run dev
 ```
 
-Open `/test/browser.html` on the dev server to run lifecycle, jumping, geometry, scroll, dynamic-page, and cleanup checks in a real browser. `/test/perches.html` covers visible text, padding, borders, fills, rounded corners, clipping, overlays, and arrival placement. `/test/muskets.html` checks aiming, mirrored rotation, firing, effect cleanup, pauses, and target selection. `/test/roasts.html` checks ball travel, hits, misses, roast replacement, expiry, and cleanup. The test result is also available as `window.testResults`. Reduced-motion and responsive layout checks can be performed with browser emulation.
+Browser checks: `/test/browser.html` for turkey lifecycle and movement,
+`/test/perches.html` for visible surfaces, and `/test/cowboy.html` for control,
+page input isolation, movement physics, speed-based leg animation, charging, aiming, hits, and cleanup. `/test/auto.html` covers autonomous hits, misses, and barrel smoke. Results are available
+as `window.testResults`.
 
 MIT licensed.

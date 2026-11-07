@@ -2,7 +2,8 @@
 <style>body{margin:0;font:14px monospace;background:#faf7ef}#a,#b{position:absolute;width:240px;height:40px;left:100px;background:#ccc}#a{top:180px}#b{top:230px;left:300px}#ignored{position:absolute;top:120px;width:200px;left:10px}.spacer{height:1800px}pre{position:relative;margin:350px 24px 0}</style></head><body>
 <div id="a" data-turkey-perch>A ledge</div><div id="b" data-turkey-perch>B ledge</div><div id="ignored" data-turkey-perch data-turkey-ignore>Ignored ledge</div><button id="click-target">Real button</button><pre id="results">Running…</pre><div class="spacer"></div>
 <script type="module">
-import { createTurkeys } from '../dist/turkeys.mjs';
+import { createTurkeys as createScene } from '../dist/turkeys.mjs';
+const createTurkeys = (options={}) => createScene({cowboy:false,...options});
 const results = []; const wait = ms => new Promise(r => setTimeout(r,ms));
 const assert = (condition, name) => { results.push({ name, pass: Boolean(condition) }); if (!condition) throw Error(name); };
 const standardRandom = Math.random;
@@ -14,7 +15,7 @@ try {
   const host = document.querySelector('tiny-turkeys');
   const bird = () => host.shadowRoot.querySelector('.bird');
   assert(flock.count === 1, 'first visitor arrives');
-  assert(host.getAttribute('aria-hidden') === 'true' && getComputedStyle(host).pointerEvents === 'none', 'overlay is decorative and ignores clicks');
+  assert(!!host.shadowRoot.querySelector('[aria-hidden="true"]') && getComputedStyle(host).pointerEvents === 'none', 'overlay is decorative and ignores clicks');
   let clicks = 0;
   document.querySelector('#click-target').onclick = () => clicks++;
   document.elementFromPoint(10,10).click();
@@ -78,36 +79,6 @@ try {
   flock.destroy();
   assert(!document.querySelector('tiny-turkeys'), 'all test overlays cleaned up');
   Math.random = () => .6;
-  flock = createTurkeys({ characters: ['pilgrim'], maxTurkeys: 3, perchSelector:'#a', respectReducedMotion:false });
-  flock.start(); await wait(150);
-  let pilgrim = document.querySelector('tiny-turkeys').shadowRoot.querySelector('.bird');
-  assert(pilgrim.dataset.character === 'pilgrim' && pilgrim.querySelector('.musket'), 'pilgrim arrivals carry a musket');
-  assert(pilgrim.style.width === '30px' && pilgrim.querySelector('svg').style.transform === 'scaleX(1)', 'pilgrim has correct size and faces its travel direction');
-  assert(flock.spawn('turkey') && flock.spawn('pilgrim') && !flock.spawn('pilgrim'), 'explicit character spawns share the visitor cap');
-  const types = [...document.querySelector('tiny-turkeys').shadowRoot.querySelectorAll('.bird')].map(node => node.dataset.character);
-  assert(types.join(',') === 'pilgrim,turkey,pilgrim', 'different characters coexist in one overlay');
-  await wait(1350);
-  assert(pilgrim.dataset.action === 'walk' && getComputedStyle(pilgrim.querySelector('.musket')).animationName === 'carry', 'pilgrim walks while carrying the musket');
-  flock.stop();
-  Math.random = () => .8;
-  flock = createTurkeys({characters:['pilgrim'],perchSelector:'#a',respectReducedMotion:false});
-  flock.start(); await wait(1750);
-  pilgrim = document.querySelector('tiny-turkeys').shadowRoot.querySelector('.bird');
-  assert(pilgrim.dataset.action === 'idle' && !pilgrim.querySelector('.wing'), 'pilgrim rests instead of flapping wings');
-  flock.destroy();
-  // Restore the nearby ledge and force a pilgrim hop.
-  const destination = document.createElement('div');
-  destination.id = 'b'; destination.dataset.turkeyPerch = ''; document.body.append(destination);
-  Math.random = () => .4;
-  flock = createTurkeys({characters:['pilgrim'],jumpDistance:180,perchSelector:'[data-turkey-perch]',respectReducedMotion:false});
-  flock.start(); await wait(1550);
-  pilgrim = document.querySelector('tiny-turkeys').shadowRoot.querySelector('.bird');
-  assert(pilgrim.dataset.action === 'jump', 'pilgrim hops between nearby ledges');
-  for (let i=0;i<50 && pilgrim.dataset.action === 'jump';i++) await wait(20);
-  assert(Math.abs(new DOMMatrix(pilgrim.style.transform).m42 - 200) < 1, 'pilgrim lands on destination ledge');
-  flock.destroy();
-  assert(!document.querySelector('tiny-turkeys'), 'mixed visitors clean up completely');
-  Math.random = () => .6;
   flock = createTurkeys({perchSelector:'#a',maxTurkeys:1,poopInterval:[150,150],poopLifetime:400,lifetime:[300,300],spawnInterval:[100000,100000],respectReducedMotion:false});
   flock.start(); await wait(220);
   let poopHost = document.querySelector('tiny-turkeys');
@@ -122,12 +93,10 @@ try {
   flock.resume(); await wait(500);
   assert(!poopHost.shadowRoot.querySelector('.dropping'), 'droppings expire automatically');
   flock.destroy(); scrollTo(0,0);
-  for (const options of [{characters:['pilgrim'],poopInterval:[100,100]}, {poopInterval:false}]) {
-    flock = createTurkeys({...options,perchSelector:'#a',respectReducedMotion:false});
-    flock.start(); await wait(250);
-    assert(!document.querySelector('tiny-turkeys').shadowRoot.querySelector('.dropping'), options.poopInterval === false ? 'droppings can be disabled' : 'pilgrims do not leave droppings');
-    flock.destroy();
-  }
+  flock = createTurkeys({poopInterval:false,perchSelector:'#a',respectReducedMotion:false});
+  flock.start(); await wait(250);
+  assert(!document.querySelector('tiny-turkeys').shadowRoot.querySelector('.dropping'), 'droppings can be disabled');
+  flock.destroy();
   flock = createTurkeys({perchSelector:'#a',poopInterval:[150,150],respectReducedMotion:false});
   flock.start(); await wait(230);
   poopHost = document.querySelector('tiny-turkeys');
