@@ -1,0 +1,13 @@
+{
+  "name": "tiny-turkeys",
+  "version": "0.1.0",
+  "description": "A tiny, opt-in Thanksgiving flock for any web page.",
+  "type": "module",
+  "main": "./dist/turkeys.js",
+  "module": "./dist/turkeys.mjs",
+  "exports": { ".": { "types": "./src/turkeys.d.ts", "import": "./dist/turkeys.mjs", "default": "./dist/turkeys.js" } },
+  "types": "./src/turkeys.d.ts",
+  "files": ["dist", "src/turkeys.d.ts", "README.md", "LICENSE"],
+  "scripts": { "build": "node scripts/build.mjs", "dev": "node scripts/serve.mjs", "test": "node --test" },
+  "license": "MIT"
+}

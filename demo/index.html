@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5d979">
+  <title>Tiny Turkeys — a little more gobble</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="masthead"><a class="wordmark" href="#" aria-label="Tiny Turkeys home"><span class="brand-bird" aria-hidden="true"></span>tiny turkeys<span class="js-mark">.js</span></a><a class="text-link" href="#use-it">Put them on your page <span aria-hidden="true">↗</span></a></header>
+  <main>
+    <section class="intro" aria-labelledby="headline">
+      <div class="intro-copy"><p class="eyebrow"><span class="little-dot"></span> A seasonal, very unserious JavaScript library</p>
+      <h1 id="headline">Your website.<br>A little more <em>gobble.</em></h1>
+      <p class="lede">Tiny turkeys. Big holiday energy. Let a few feathered visitors wander, flap, and hop around your webpage.</p>
+      <div class="actions"><button class="primary" id="toggle" aria-pressed="false"><span class="button-icon" aria-hidden="true">✦</span> Release the turkeys <span aria-hidden="true">↗</span></button><span class="side-note">No feeding required.</span></div>
+      <p class="live-note" id="status" role="status">The flock is waiting in the wings.</p>
+      </div>
+      <div class="specimen" role="img" aria-label="Pixel-art turkey, shown larger than its actual 30-pixel size">
+        <div class="specimen-top"><span>MEET YOUR NEW SITE VISITOR</span><span>Fig. 01</span></div>
+        <div class="specimen-bird" aria-hidden="true"></div>
+        <div class="specimen-caption"><span class="annotation">a distinguished<br>little gobbler</span><span class="size-label">30 × 30 px<br><span>actual size, approximately</span></span></div>
+      </div>
+    </section>
+    <section class="playground" aria-labelledby="playground-title">
+      <div class="section-heading"><div><p class="eyebrow">Their page now, technically</p><h2 id="playground-title">A place to stretch their legs.</h2></div><div class="flock-meter"><span class="little-dot"></span><span id="count">0</span> / 6 visitors</div></div>
+      <div class="habitat">
+        <div class="habitat-label">LIVE HABITAT <span aria-hidden="true">↘</span></div>
+        <div class="perch perch-a" data-turkey-perch><span class="perch-symbol">Aa</span><span>Headlines make lovely sidewalks.</span></div>
+        <div class="perch perch-b" data-turkey-perch><span class="perch-symbol">⌁</span><span>A quick flap. A little hop.</span></div>
+        <div class="perch perch-c" data-turkey-perch><span class="perch-symbol">↗</span><span>Absolutely nowhere to be.</span></div>
+        <span class="habitat-note">Psst. They'll explore the rest of this page, too.</span>
+        <button id="add" class="add-button" disabled>+ Invite one more</button>
+      </div>
+      <div class="traits"><p><span aria-hidden="true">↟</span> Walks on your real page elements</p><p><span aria-hidden="true">⌁</span> Flaps, hops &amp; minds its business</p><p><span aria-hidden="true">♡</span> Leaves every click to you</p></div>
+    </section>
+    <section id="use-it" class="installation" aria-labelledby="install-title"><div><p class="eyebrow">A tiny addition</p><h2 id="install-title">Just add turkeys.</h2><p>No dependencies. No images to load.<br>One script and a little Thanksgiving spirit.</p><a class="text-link" href="../README.md">Read the full field guide <span aria-hidden="true">↗</span></a></div>
+      <div class="code-panel"><div class="code-header"><span>YOUR PAGE · HTML</span><button id="copy">Copy snippet</button></div><pre tabindex="0" role="region" aria-label="Installation code"><code><span class="code-muted">&lt;!-- Add before &lt;/body&gt; --&gt;</span>
+&lt;script src="./turkeys.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  <span class="code-gold">const</span> flock = TinyTurkeys.createTurkeys();
+  flock.<span class="code-gold">start</span>();
+&lt;/script&gt;</code></pre><div class="code-foot">Serve <a href="../dist/turkeys.js" download>turkeys.js ↓</a> alongside your page. You're ready.</div></div>
+    </section>
+  </main>
+  <footer><span>Made for the joy of small, unnecessary things.</span><span>Happy Thanksgiving. <span aria-hidden="true">✳</span></span></footer>
+  <script type="module" src="./demo.js"></script>
+</body>
+</html>
