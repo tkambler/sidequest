@@ -1,0 +1,59 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Roast browser checks</title><style>body{margin:0;font:14px monospace;background:#faf7ef}.ledge{position:absolute;width:240px;height:40px;background:#ccc}#a{left:400px;top:340px}#b{left:620px;top:120px}pre{margin:500px 24px 0}</style></head><body><div class="ledge" id="a"></div><div class="ledge" id="b"></div><pre id="results">Running…</pre>
+<script type="module">
+import {createTurkeys} from '../dist/turkeys.mjs';
+const results=[],random=Math.random,wait=ms=>new Promise(r=>setTimeout(r,ms));
+const assert=(v,name)=>{results.push({name,pass:!!v});if(!v)throw Error(name)};
+const until=async(predicate,timeout=3500)=>{for(let t=0;t<timeout;t+=20){if(predicate())return true;await wait(20)}return false};
+let flock;const root=()=>document.querySelector('tiny-turkeys').shadowRoot;
+async function setup(accuracy){
+  Math.random=()=>.4;
+  flock=createTurkeys({characters:['pilgrim'],maxTurkeys:2,perchSelector:'.ledge',musketRange:600,shotAccuracy:accuracy,roastLifetime:1600,shotInterval:[200,200],poopInterval:false,lifetime:[100000,100000],spawnInterval:[100000,100000],respectReducedMotion:false});
+  flock.start();await wait(80);Math.random=()=>.8;flock.spawn('turkey');
+}
+try{
+  await setup(1);
+  assert(await until(()=>root().querySelector('.shot')),'firing releases a visible musket ball');
+  let shot=root().querySelector('.shot'),ball=shot.querySelector('.pellet');
+  assert(getComputedStyle(ball).width==='3px'&&getComputedStyle(ball).height==='3px','musket ball is a tiny round 3-pixel sprite');
+  assert(root().querySelector('[data-character="turkey"]')&&!root().querySelector('[data-character="roast"]'),'turkey is still alive when the ball leaves the barrel');
+  const start=ball.style.transform;await wait(100);
+  assert(ball.style.transform!==start,'musket ball travels across the page');
+  flock.pause();await wait(600);
+  assert(root().querySelector('[data-character="turkey"]')&&!root().querySelector('[data-character="roast"]'),'pause prevents a ball from hitting while frozen');
+  flock.resume();
+  assert(await until(()=>root().querySelector('[data-character="roast"]')),'ball impact replaces the live turkey with a roast');
+  const roast=root().querySelector('[data-character="roast"]');
+  assert(!root().querySelector('[data-character="turkey"]')&&flock.count===2,'roast replaces the existing visitor and shares the cap');
+  assert(shot.dataset.outcome==='hit'&&ball.style.opacity==='0','ball is consumed by a real collision');
+  assert(!roast.querySelector('.wing')&&!roast.querySelector('.foot')&&roast.dataset.action==='roast','prepared roast has no live turkey animation');
+  const position=roast.style.transform;await wait(450);
+  assert(roast.style.transform===position&&!root().querySelector('.dropping'),'roast remains still on its ledge');
+  assert(root().querySelector('[data-character="pilgrim"]').dataset.action==='reload','pilgrim finishes reloading after a hit');
+  await wait(1300);
+  assert(!roast.isConnected&&flock.count===1,'roast expires and frees a visitor slot');
+  assert(!['aim','fire'].includes(root().querySelector('[data-character="pilgrim"]').dataset.action),'roasts are not targeted again');
+  assert(flock.spawn('turkey'),'new visitors can arrive after a roast expires');
+  flock.destroy();assert(!document.querySelector('tiny-turkeys'),'destroy removes roasts and all ball effects');
+  await setup(0);
+  assert(await until(()=>root().querySelector('.shot')),'inaccurate shots still release a ball');shot=root().querySelector('.shot');
+  await wait(1080);
+  assert(shot.dataset.outcome==='miss','wide shot travels past the turkey and misses');
+  assert(root().querySelector('[data-character="turkey"]')&&!root().querySelector('[data-character="roast"]'),'a missed turkey keeps wandering');
+  assert(!root().querySelector('.shot'),'missed balls and smoke clean up');flock.stop();
+  // Put the target on a nearby jumping ledge and hit it while airborne.
+  document.querySelector('#b').style.top='290px';Math.random=()=>.4;
+  flock=createTurkeys({characters:['pilgrim'],maxTurkeys:2,perchSelector:'.ledge',jumpDistance:400,musketRange:600,shotAccuracy:1,shotInterval:[50,50],poopInterval:false,lifetime:[100000,100000],spawnInterval:[100000,100000],respectReducedMotion:false});
+  flock.start();await wait(80);
+  let calls=0;Math.random=()=>++calls===4?0:.8;flock.spawn('turkey');
+  calls=0;Math.random=()=>++calls===5?1:.4;
+  let jumped=false;
+  const cooked=await until(()=>{if(root().querySelector('[data-character="turkey"]')?.dataset.action==='jump')jumped=true;return root().querySelector('[data-character="roast"]')});
+  assert(cooked&&jumped,'a moving airborne turkey can be hit');
+  const falling=root().querySelector('[data-character="roast"]');
+  assert(new DOMMatrix(falling.style.transform).m42+30<340,'airborne roast begins falling instead of floating in place');
+  assert(await until(()=>Math.abs(new DOMMatrix(falling.style.transform).m42-(innerHeight-30))<1,2500),'airborne roast lands on the visible floor below');
+  flock.destroy();
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{Math.random=random;flock?.stop()}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Roasts':'FAIL — Roasts';
+</script></body></html>

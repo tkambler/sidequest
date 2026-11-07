@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Perch regression checks</title>
+<style>body{margin:0;background:white;color:#222;font:20px Arial}#fixture{position:fixed;left:40px;top:80px;width:1000px;height:600px}.candidate{width:400px;height:80px}#results{position:absolute;top:700px;margin:20px;font:14px monospace}</style></head><body><div id="fixture"></div><pre id="results">Running…</pre>
+<script type="module">
+import {visiblePerches} from '../src/perches.js';
+import {createTurkeys} from '../dist/turkeys.mjs';
+const results = [], fixture = document.querySelector('#fixture');
+const config = {perchSelector:'.candidate',excludeSelector:'[data-turkey-ignore]',size:30};
+const assert = (condition,name) => {results.push({name,pass:!!condition});if(!condition)throw Error(name)};
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const setup = (style='', text='') => {fixture.innerHTML='';const element=document.createElement('div');element.className='candidate';element.style.cssText=style;element.textContent=text;fixture.append(element);return element};
+const scan=()=>visiblePerches(config);
+let flock;
+const standardRandom=Math.random;
+try {
+  setup(); assert(scan().length===0,'transparent empty containers are not ledges');
+  let element=setup('padding:50px 80px;line-height:80px;width:600px','Little gobbler');
+  let range=document.createRange();range.selectNodeContents(element);let textRect=range.getBoundingClientRect();
+  let surfaces=scan();
+  assert(surfaces.length===1 && surfaces[0].left>=textRect.left && surfaces[0].right<=textRect.right+.1,'text ledges exclude empty horizontal margins');
+  assert(surfaces[0].y>element.getBoundingClientRect().top+50,'text ledges exclude top padding and font leading');
+  element=setup('text-align:center;width:600px','Little gobbler'); surfaces=scan();
+  assert(surfaces.length===1&&surfaces[0].left>150&&surfaces[0].right<500,'centered text does not create a full-width perch');
+  element=setup('width:200px;height:auto;line-height:50px','Several little gobblers are wandering around this long sentence.');
+  surfaces=scan();assert(surfaces.length===1&&surfaces[0].y<120,'only the exposed upper text line is walkable');
+  setup('background:#ddd');assert(scan().length===1,'contrasting filled top edges are ledges');
+  setup('background:white');assert(scan().length===0,'background identical to the page is not an edge');
+  setup('border-top:2px solid #333');assert(scan().length===1,'visible top borders are ledges');
+  setup('border-top:2px solid white');assert(scan().length===0,'invisible borders do not create ledges');
+  setup('color:white','Invisible text');assert(scan().length===0,'text matching its background is excluded');
+  setup('color:transparent','Invisible text');assert(scan().length===0,'transparent text is excluded');
+  element=setup('background:#ddd;border-radius:40px;width:200px');surfaces=scan();
+  assert(surfaces.length===1&&surfaces[0].left>=80&&surfaces[0].right<=200,'rounded corners are excluded from the flat top');
+  element=setup('background:#ddd');element.dataset.turkeyIgnore='';assert(scan().length===0,'ignored painted elements remain excluded');
+  element=setup('background:#ddd');fixture.style.opacity='.01';assert(scan().length===0,'transparent ancestors suppress perches');fixture.style.opacity='';
+  setup('background:#ddd;transform:rotate(10deg)');assert(scan().length===0,'rotated boxes do not create imaginary horizontal ledges');
+  setup('background:#ddd;visibility:hidden');assert(scan().length===0,'hidden surfaces are excluded');
+  element=setup('background:#ddd;position:relative;top:100px');fixture.style.overflow='hidden';fixture.style.height='50px';assert(scan().length===0,'clipped surfaces are excluded');fixture.style.overflow='';fixture.style.height='600px';
+  function overlay(top=0,height=500,pointer='auto') {const cover=document.createElement('div');cover.className='candidate';cover.style.cssText=`position:fixed;left:160px;top:${top}px;width:80px;height:${height}px;background:#444;z-index:10;pointer-events:${pointer}`;fixture.append(cover);return cover}
+  element=setup('background:#ddd');let cover=overlay();surfaces=scan().filter(s=>s.element===element);
+  assert(surfaces.length===2&&surfaces.every(s=>s.right<=160||s.left>=240),'partially covered edges split into exposed spans');
+  cover.style.top='40px';cover.style.height='38px';surfaces=scan().filter(s=>s.element===element);
+  assert(surfaces.length===2&&surfaces.every(s=>s.right<=160||s.left>=240),'headroom is checked above the entire walking span');
+  cover.style.pointerEvents='none';surfaces=scan().filter(s=>s.element===element);
+  assert(surfaces.length===2&&surfaces.every(s=>s.right<=160||s.left>=240),'painted pointer-transparent overlays also block perches');
+  cover.style.left='0';cover.style.width='1000px';cover.style.top='0';cover.style.height='500px';assert(!scan().some(s=>s.element===element),'fully covered edges are excluded');
+  element=setup('background:#ddd;position:relative');
+  cover=document.createElement('div');cover.style.cssText='position:absolute;top:-20px;left:120px;width:80px;height:120px;background:#444';element.append(cover);
+  surfaces=scan().filter(s=>s.element===element);
+  assert(surfaces.length===2&&surfaces.every(s=>s.right<=160||s.left>=240),'a covering child does not count as the parent edge');
+  element=setup('background:#ddd');
+  const transparentChild=document.createElement('div');transparentChild.style.cssText='height:40px';element.append(transparentChild);
+  assert(scan().some(s=>s.element===element),'transparent children do not hide a filled parent top edge');
+  element=setup('background:#ddd');
+  const label=document.createElement('p');label.style.cssText='position:absolute;left:0;top:-25px;width:400px;margin:0;font-size:16px';label.textContent='Label';fixture.append(label);
+  surfaces=scan().filter(s=>s.element===element);
+  assert(surfaces.some(s=>s.right>400),'empty margins of an overhead label do not hide visible ledges');
+  // Integration: repeatedly request arrivals on a transparent padded block.
+  element=setup('padding:50px 80px;line-height:80px;width:600px','Little gobbler');
+  range=document.createRange();range.selectNodeContents(element);textRect=range.getBoundingClientRect();
+  flock=createTurkeys({...config,maxTurkeys:8,poopInterval:false,respectReducedMotion:false});flock.start();await wait(100);
+  for(let i=0;i<7;i++)flock.spawn();await wait(50);
+  const birds=[...document.querySelector('tiny-turkeys').shadowRoot.querySelectorAll('.bird')];
+  assert(birds.every(b=>{const p=new DOMMatrix(b.style.transform);return Math.abs(p.m42-(innerHeight-30))<1||(p.m41>=textRect.left&&p.m41+30<=textRect.right&&p.m42+30>130)}),'arrivals use text ink or the floor, never container padding');
+  flock.destroy();
+  element=setup('background:#ddd');Math.random=()=>.6;
+  flock=createTurkeys({...config,maxTurkeys:1,poopInterval:[400,400],respectReducedMotion:false});
+  flock.start();await wait(450);
+  const host=document.querySelector('tiny-turkeys');
+  const dropping=host.shadowRoot.querySelector('.dropping');
+  const dropX=new DOMMatrix(dropping.style.transform).m41;
+  fixture.style.left='80px';await wait(80);
+  assert(Math.abs(new DOMMatrix(dropping.style.transform).m41-dropX-40)<1,'droppings remain anchored when a visible ledge moves horizontally');
+  cover=overlay();cover.style.left='0';cover.style.width='1000px';await wait(80);
+  const bird=host.shadowRoot.querySelector('.bird');
+  assert(Math.abs(new DOMMatrix(bird.style.transform).m42-(innerHeight-30))<1,'a newly covered perch relocates an existing visitor');
+  assert(!dropping.isConnected,'covering a perch removes its existing droppings');
+  flock.destroy();fixture.style.left='40px';
+} catch(error) {results.push({name:error.message,pass:false,error:error.stack})}
+finally{Math.random=standardRandom;flock?.stop();fixture.style.opacity='';}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Visible perches':'FAIL — Visible perches';
+</script></body></html>
