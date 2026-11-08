@@ -1,10 +1,9 @@
 # Sidequest
 
-A dependency-free library of opt-in pixel-art games for any web page. Tiny pixel-art turkeys explore
-visible ledges, flap, hop, and occasionally leave little droppings. One cowboy
-patrols the bottom of the viewport. Click him to take control.
-
-No runtime dependencies or external artwork. Supports modules and a plain script.
+A dependency-free library of opt-in pixel-art games for any web page.
+Choose **Cowboy & turkeys** or **Orc archer** in the demo.
+Each mode is available as a standalone factory, with module and plain-script
+support and no external artwork to load.
 
 ## Demo
 
@@ -12,7 +11,8 @@ No runtime dependencies or external artwork. Supports modules and a plain script
 npm run dev
 ```
 
-Open **http://localhost:4173/demo/** and choose **Release the visitors**. The supplied
+Open **http://localhost:4173/demo/**, choose a game, and use its start button. In
+**Cowboy & turkeys**, choose **Release the visitors**. The supplied
 gobble clip plays once at 50% volume. **Gather the visitors** removes the scene.
 The startup sound lives in `demo/assets/gobble1.mp3`. Each turkey hit plays
 `demo/assets/gobble2.mp3` once at **20% volume**, for player and autonomous shots.
@@ -23,7 +23,10 @@ Use the optional `onShot` and `onTurkeyHit` callbacks to add your own sounds or 
 ## Cowboy controls
 
 - There is exactly one cowboy per flock, separate from the turkey visitor cap.
-- He slowly patrols left and right along the viewport floor and occasionally pauses to aim at a turkey and take a shot. Some shots hit; others miss.
+- He slowly patrols left and right along the viewport floor. When the nearest
+  reachable turkey is more than 600 horizontal pixels away, he runs closer,
+  closing to about 400 pixels before aiming. He occasionally pauses to aim at
+  a turkey and take a shot. Some shots hit; others miss.
 - Click the cowboy to enter control mode. **A / D** move him, and the rifle follows
   your mouse in any direction, including behind him. Movement builds speed with
   acceleration, coasts briefly on release, and brakes before reversing. His leg
@@ -46,7 +49,9 @@ Use the optional `onShot` and `onTurkeyHit` callbacks to add your own sounds or 
 Balls use swept collision checks against moving turkeys. A hit replaces the live
 sprite with a stationary roast on a platter. An airborne roast falls to a visible
 ledge below. Roasts fade after eight active seconds and free their visitor slot.
-Shots are controlled by the player in control mode. Outside control mode, the cowboy occasionally shoots at reachable turkeys. Taking control cancels any pending autonomous shot. Both shot types produce an expanding pixel smoke puff at the muzzle.
+Shots are controlled by the player in control mode. Outside control mode, the cowboy occasionally shoots at reachable turkeys. Taking control cancels any pending autonomous shot and pursuit. Player movement
+always takes precedence. Pausing freezes pursuit; expired or offscreen targets
+are dropped. Setting `autoShotInterval: false` disables autonomous pursuit too. Both shot types produce an expanding pixel smoke puff at the muzzle.
 
 ## Add to any page
 
@@ -100,7 +105,9 @@ flock.controlled;// Whether the cowboy is under player control
 ```
 
 `start`, `stop`, `pause`, and `resume` return the flock for chaining. Call `start()`
-after `document.body` exists. Each instance owns its own scene and cleans it up.
+after `document.body` exists. Initial geometry discovery runs across animation
+frames; `spawn()` returns false until it finishes, and automatic arrivals wait
+for it too. Each instance owns its own scene and cleans it up.
 `turkeySVG()`, `cowboySVG()`, and `roastSVG()` export self-contained decorative
 SVG strings for previews. TypeScript declarations are included.
 
@@ -115,7 +122,7 @@ const flock = createTurkeys({
   poopLifetime: 6000,
   cowboy: true,              // false for decorative turkeys only
   cowboySize: 48,            // Cowboy sprite width, CSS px
-  autoShotInterval: [6500, 12000], // false disables autonomous shots
+  autoShotInterval: [6500, 12000], // false disables autonomous shots and pursuit
   autoShotAccuracy: .6,       // Chance of accurate aim outside control mode
   cowboySpeed: 420,          // Maximum player speed, px/second; patrol is 16 px/second
   roastLifetime: 8000,
@@ -135,10 +142,26 @@ surfaces are skipped. The viewport floor remains a fallback.
 Override `perchSelector` to narrow candidates, for example
 `'[data-turkey-perch],button,h1,h2'`. The `data-turkey-perch` marker never bypasses
 visibility checks. `data-turkey-ignore` excludes an element and its descendants;
-`excludeSelector` can replace it. Images need a border or contrasting background.
+`excludeSelector` can replace it. Mutations within excluded subtrees do not
+trigger geometry discovery, so include animated decorative overlays in that
+selector. Select existing host elements with arbitrary CSS selectors to narrow
+geometry discovery without adding attributes, wrappers, or styles to your page.
+Images need a border or contrasting background.
 
 ## Behavior and limits
 
+- Turkey and orc geometry discovery coalesces mutation and scroll bursts, starting
+  ordinary refreshes at most four times per active second. Initial discovery
+  retries promptly if interrupted. Each scan advances in roughly 2 ms chunks on
+  animation frames; a single DOM operation can exceed that cooperative budget.
+  Existing geometry remains in use until fresh results are ready; layout changes
+  cancel unfinished snapshots. Periodic scans catch changes without mutations.
+  Rendering, physics and input continue between discovery chunks.
+- Known turkey perches follow page scrolling, nested scroll containers and
+  element translations every animation frame, keeping birds, airborne paths and
+  droppings attached. Rectangle reads are shared across spans on the same element;
+  following an existing perch does not rediscover it. Full discovery still handles
+  visibility, size, clipping, removal, and newly available ledges.
 - A single animation loop per flock handles movement, charges, ball flight,
   collisions, and fading. Lifetimes freeze when the scene is paused or hidden.
 - The cowboy stays at the viewport floor through scrolling and resizing. Movement
@@ -167,7 +190,12 @@ npm run dev
 Browser checks: `/test/browser.html` for turkey lifecycle and movement,
 `/test/perches.html` for visible surfaces, and `/test/cowboy.html` for control,
 page input isolation, movement physics, speed-based leg animation, charging, aiming, hits, and cleanup. `/test/auto.html` covers autonomous hits, misses, and barrel smoke. Results are available
-as `window.testResults`.
+as `window.testResults`. `/test/pursuit.html` covers running into firing range,
+real hits, control handoff, pause/resume, and canceled targets. `/test/scroll.html`
+verifies frame-by-frame card/title attachment through page, nested, horizontal
+and translated scrolling. `/test/performance.html` checks incremental discovery,
+scan coalescing, ignored animation subtrees, cleanup and restarted discovery for
+turkeys and orcs.
 
 MIT licensed.
 

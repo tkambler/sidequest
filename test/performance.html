@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Perch scan performance checks</title>
+<style>body{margin:0;height:1800px;background:white}#perch{position:absolute;top:200px;left:100px;width:300px;height:40px;background:#777}#cosmetic{position:fixed;left:0;top:0}</style>
+</head><body><div id="perch">A real ledge</div><div id="cosmetic" data-turkey-ignore><span>Animated decoration</span></div><pre id="results">Running…</pre>
+<script type="module">
+import { createTurkeys, createOrcGame } from '../dist/sidequest.mjs';
+import { createPerchScan, visiblePerches } from '../src/perches.js';
+const results = [], wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const assert = (condition, name) => { results.push({ name, pass: !!condition }); if (!condition) throw Error(name); };
+const original = document.querySelectorAll;
+let scans = 0, game, animation;
+document.querySelectorAll = function(selector) {
+  if (selector === '#perch') scans++;
+  return original.call(this, selector);
+};
+try {
+  const config = {perchSelector:'#perch',excludeSelector:'[data-turkey-ignore]',size:30};
+  const discovery = createPerchScan(config);
+  assert(discovery.step(0) === null, 'perch discovery yields before traversing the page');
+  let perches = null, chunks = 0;
+  while (perches === null && chunks++ < 1000) perches = discovery.step(0);
+  const signature = surfaces => surfaces.map(({left,right,y,part})=>({left,right,y,part}));
+  assert(chunks > 1 && perches !== null, 'discovery preserves progress across bounded chunks');
+  assert(JSON.stringify(signature(perches)) === JSON.stringify(signature(visiblePerches(config))), 'chunked discovery preserves synchronous perch geometry');
+  scans = 0;
+  for (const mode of ['turkeys', 'orcs']) {
+    const make = () => mode === 'turkeys'
+      ? createTurkeys({ perchSelector: '#perch', autoShotInterval: false, poopInterval: false, respectReducedMotion: false })
+      : createOrcGame({ targetSelector: '#perch', autoShotInterval: false, respectReducedMotion: false });
+    game = make().start();
+    await wait(350);
+    scans = 0;
+    let step = 0;
+    const decoration = document.querySelector('#cosmetic span');
+    animation = setInterval(() => { decoration.style.transform = `translateX(${++step % 10}px)`; }, 8);
+    await wait(600);
+    assert(scans === 0, `${mode}: ignored subtree animation does not invalidate geometry`);
+    clearInterval(animation);
+    const perch = document.querySelector('#perch');
+    scans = 0;
+    animation = setInterval(() => { perch.style.left = `${100 + (++step % 10)}px`; }, 8);
+    await wait(1000);
+    assert(scans > 0 && scans <= 5, `${mode}: real mutation bursts are coalesced to at most four scans per second`);
+    clearInterval(animation);
+    game.destroy();
+    scans = 0;
+    perch.style.left = '100px';
+    await wait(300);
+    assert(scans === 0, `${mode}: destroy removes geometry observers and animation work`);
+    game = make().start();
+    await wait(100);
+    assert(scans >= 1 && scans <= 2 && (mode !== 'turkeys' || game.count === 1), `${mode}: fresh scenes discover geometry immediately`);
+    game.stop().start();
+    scans = 0;
+    await wait(100);
+    assert(scans >= 1 && scans <= 2 && (mode !== 'turkeys' || game.count === 1), `${mode}: restarted scenes discover geometry immediately`);
+    game.destroy();
+  }
+} catch (error) { results.push({ name: error.message, pass: false, error: error.stack }); }
+finally {
+  clearInterval(animation); game?.destroy(); document.querySelectorAll = original;
+}
+window.testResults = results;
+document.querySelector('#results').textContent = results.map(r => `${r.pass ? 'PASS' : 'FAIL'} ${r.name}`).join('\n');
+document.title = results.every(r => r.pass) ? 'PASS — Perch performance' : 'FAIL — Perch performance';
+</script></body></html>

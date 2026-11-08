@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+safehouse \
+  --env-pass=BIFROST_VIRTUAL_KEY \
+  --env-pass=NODE_EXTRA_CA_CERTS \
+  --env-pass=ONEPI_BIFROST_CUI_TOKEN \
+  --env-pass=NEXUS_NPM_AUTH \
+  --env-pass=SSL_CERT_FILE \
+  --env-pass=CODEX_CA_CERTIFICATE \
+  --env-pass=ONEISSUE_API_TOKEN \
+  --enable=chromium-full \
+  --enable=chromium-headless \
+  --enable=agent-browser \
+  --enable=browser-native-messaging \
+  --enable=process-control \
+  --enable=docker \
+  --enable=shell-init \
+  --enable=all-apps \
+  --enable=lldb \
+  --enable=electron \
+  --enable=macos-gui \
+  --add-dirs=~/Library/Caches \
+  --add-dirs=~/.nvm \
+  --add-dirs-ro=~/certs \
+  --add-dirs-ro=~/repos/blockfall-web-tetris \
+  --add-dirs-ro=~/sounds \
+  --add-dirs-ro=~/.config \
+  --add-dirs-ro=/usr/bin \
+  --add-dirs-ro=~/Library/Containers \
+  --add-dirs-ro=/Applications \
+  --add-dirs-ro=~/bin \
+  --add-dirs-ro=~/.ssh \
+  --add-dirs-ro=~/.kube \
+  --add-dirs=~/.aws \
+  --add-dirs=~/.agent-browser \
+  --add-dirs=~/.codex \
+  --add-dirs-ro=~/repos/luminaux \
+  --add-dirs-ro=~/repos/onefleet \
+  --add-dirs=~/repos/bc \
+  --add-dirs=~/.agent-browser-electron \
+  --add-dirs=~/worktrees \
+  --add-dirs=~/repos/radish-bot \
+  --add-dirs=~/repos/oasis-control \
+  --add-dirs-ro=~/repos/plankwell \
+  --add-dirs-ro=~/repos/OnCall \
+  --add-dirs-ro=~/repos/dark-factory \
+  --add-dirs-ro=~/repos/onepi \
+  --add-dirs-ro=~/repos/employee-portal \
+  --add-dirs=~/repos/argocd-commercial \
+  --add-dirs=~/repos/infrastructure \
+  --add-dirs-ro=~/repos/atlas \
+  --add-dirs-ro=~/repos/desksprite \
+  --add-dirs-ro=~/repos/oneissue \
+  codex --yolo --no-daemon "$@"

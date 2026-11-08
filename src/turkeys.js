@@ -1,5 +1,5 @@
 import { SCENE_STYLES } from './styles.js';
-import { visiblePerches } from './perches.js';
+import { createPerchScan, affectsPerches, trackPerches } from './perches.js';
 import { BALL_GRAVITY, projectilePoint, segmentHitTime } from './ballistics.js';
 import { createCowboy, cowboySVG } from './cowboy.js';
 export { cowboySVG };
@@ -66,16 +66,33 @@ export function createTurkeys(options = {}) {
     const v = config[key];
     if (!Array.isArray(v) || v.length !== 2 || !v.every(n => Number.isFinite(n) && n > 0) || v[1] < v[0]) throw new TypeError(`${key} must be [min, max] positive milliseconds`);
   }
-  let host, shadow, scenery, rider, frame = 0, observer, resizeObserver, media;
+  let host, shadow, scenery, rider, frame = 0, observer, resizeObserver, media, pendingScan;
   let running = false, paused = false, destroyed = false, dirty = true;
-  let last = 0, elapsed = 0, nextSpawn = 0, nextScan = 0, surfaces = [], birds = [], droppings = [], shots = [];
+  let last = 0, elapsed = 0, nextSpawn = 0, nextScan = 0, lastScan = -Infinity, surfaces = [], birds = [], droppings = [], shots = [];
   const floor = {};
   const reduced = () => config.respectReducedMotion && media?.matches;
-  const invalidate = () => { dirty = true; };
+  const invalidate = () => { dirty = true; pendingScan = null; };
   const blocked = () => document.hidden || paused || reduced();
 
-  function scan() {
-    surfaces = [{ element: floor, anchor: floor, part: 'floor', left: 0, right: innerWidth, y: innerHeight, originLeft: 0 }, ...visiblePerches({ ...config, overlay: host })];
+  function followPerches() {
+    if (!surfaces.length) return;
+    surfaces[0].right = innerWidth; surfaces[0].y = innerHeight;
+    const movement = trackPerches(surfaces);
+    for (const bird of birds) {
+      const source = movement.get(bird.surface);
+      if (bird.flight) {
+        if (source) { bird.flight.fromX += source.x; bird.flight.fromY += source.y; }
+        const target = movement.get(bird.flight.target);
+        if (target) bird.flight.toX += target.x;
+      } else {
+        if (source) bird.x += source.x;
+        bird.y = bird.surface.y;
+      }
+    }
+  }
+
+  function scan(perches) {
+    surfaces = [{ element: floor, anchor: floor, part: 'floor', left: 0, right: innerWidth, y: innerHeight, originLeft: 0 }, ...perches];
     const matching = (old, x, size = config.size) => surfaces.find(s =>
       s.anchor === old.anchor && s.part === old.part && x >= s.left && x + size <= s.right);
     for (const bird of birds) {
@@ -99,7 +116,7 @@ export function createTurkeys(options = {}) {
       dropping.surface = surface;
       return true;
     });
-    dirty = false;
+    dirty = false; lastScan = elapsed; nextScan = elapsed + 1200;
   }
 
   function addBird(character) {
@@ -107,7 +124,7 @@ export function createTurkeys(options = {}) {
       throw new TypeError('spawn() only adds turkeys');
     }
     if (!running || blocked() || birds.length >= config.maxTurkeys) return false;
-    if (dirty) scan();
+    if (!surfaces.length) return false;
     const surface = surfaces[Math.floor(Math.random() * surfaces.length)];
     const element = document.createElement('div');
     element.className = 'bird';
@@ -257,9 +274,22 @@ export function createTurkeys(options = {}) {
     const dt = last ? Math.min(now - last, 50) : 0;
     last = now;
     elapsed += dt;
+    // Scroll tracking is cheap and immediate; full discovery remains batched.
+    followPerches();
     rider?.update(dt, elapsed);
-    if (dirty || elapsed >= nextScan) { scan(); nextScan = elapsed + 1200; }
-    if (elapsed >= nextSpawn) { addBird(); nextSpawn = elapsed + range(config.spawnInterval); }
+    // Coalesce mutation/scroll bursts. Drawing stays at animation-frame speed;
+    // discovery runs at most four times per active second, with a periodic fallback.
+    if (!pendingScan && ((dirty && elapsed - lastScan >= 250) || elapsed >= nextScan)) {
+      pendingScan = createPerchScan({ ...config, overlay: host });
+      // An interrupted first discovery must retry immediately: no geometry yet.
+      if (lastScan !== -Infinity) lastScan = elapsed;
+      nextScan = elapsed + 1200;
+    }
+    if (pendingScan) {
+      const perches = pendingScan.step();
+      if (perches) { scan(perches); pendingScan = null; }
+    }
+    if (elapsed >= nextSpawn && surfaces.length) { addBird(); nextSpawn = elapsed + range(config.spawnInterval); }
     birds = birds.filter(bird => {
       if (elapsed - bird.born >= bird.lifetime) { bird.element.remove(); return false; }
       bird.previousX = bird.x; bird.previousY = bird.y;
@@ -294,7 +324,7 @@ export function createTurkeys(options = {}) {
     host.style.animationPlayState = isBlocked ? 'paused' : 'running';
     host.dataset.paused = String(isBlocked);
     if (isBlocked) { cancelAnimationFrame(frame); frame = 0; last = 0; }
-    else if (!frame) { dirty = true; frame = requestAnimationFrame(tick); }
+    else if (!frame) { pendingScan = null; dirty = true; frame = requestAnimationFrame(tick); }
   }
 
   const api = {
@@ -317,7 +347,7 @@ export function createTurkeys(options = {}) {
         targets: () => birds.filter(bird => bird.character === 'turkey' && elapsed - bird.born < bird.lifetime)
           .map(bird => ({ id: bird, x: bird.x + config.size / 2, y: bird.y - config.size * .55, radius: config.size * .35 })) });
       observer = new MutationObserver(records => {
-        if (records.some(r => r.target !== host)) invalidate();
+        if (records.some(record => affectsPerches(record, host, config.excludeSelector))) invalidate();
       });
       observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });
       if (typeof ResizeObserver !== 'undefined') {
@@ -337,8 +367,8 @@ export function createTurkeys(options = {}) {
     resume() { if (running) { paused = false; wake(); } return api; },
     stop() {
       running = false; paused = false;
-      cancelAnimationFrame(frame); frame = 0; last = 0;
-      observer?.disconnect(); resizeObserver?.disconnect();
+      cancelAnimationFrame(frame); frame = 0; last = 0; lastScan = -Infinity; nextScan = 0;
+      pendingScan = null; observer?.disconnect(); resizeObserver?.disconnect();
       window.removeEventListener('resize', invalidate);
       window.removeEventListener('scroll', invalidate, true);
       document.removeEventListener('visibilitychange', wake);

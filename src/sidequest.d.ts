@@ -15,7 +15,7 @@ export interface TurkeyOptions {
   cowboySize?: number;
   /** Maximum cowboy speed under player control, in pixels per second. Default 420. */
   cowboySpeed?: number;
-  /** Random active milliseconds between autonomous shot attempts. Default [6500, 12000]. False disables. */
+  /** Random active milliseconds between autonomous shot attempts. Default [6500, 12000]. False disables autonomous shots and pursuit. */
   autoShotInterval?: [number, number] | false;
   /** Probability of accurate autonomous aim. Default .6; moving targets can still dodge. */
   autoShotAccuracy?: number;

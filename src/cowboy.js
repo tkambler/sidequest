@@ -1,4 +1,24 @@
 import { createRanger } from './ranger.js';
+import { autoAimPose } from './ballistics.js';
+
+// Cowboy-only pursuit policy. Target positions come from the live flock; this
+// does no DOM work and leaves the shared ranger's player controls untouched.
+export function cowboyPursuit({ x, bottom, width, size, targets, targetId }) {
+  const center = x + size / 2;
+  const candidates = targets.filter(target => {
+    if (target.x < 0 || target.x > width || target.y < 0 || target.y > bottom) return false;
+    const underneath = Math.max(0, Math.min(width - size, target.x - size / 2));
+    return autoAimPose(underneath, bottom, size, target.x < underneath + size / 2 ? -1 : 1, target, 1);
+  });
+  const nearest = candidates.reduce((best, target) => !best ||
+    Math.hypot(target.x - center, target.y - bottom) < Math.hypot(best.x - center, best.y - bottom) ? target : best, null);
+  if (!nearest) return null;
+  const direction = nearest.x < center ? -1 : 1;
+  // Different start/stop distances keep a moving turkey from making him stutter.
+  const range = nearest.id === targetId ? 400 : 600;
+  if (Math.abs(nearest.x - center) <= range && autoAimPose(x, bottom, size, direction, nearest, 1)) return null;
+  return { id: nearest.id, direction };
+}
 
 /** Slim cowboy on foot. Rifle pivot (19,23), muzzle (37,23), in a 40x42 viewBox. */
 export function cowboySVG() {
@@ -25,5 +45,5 @@ export function cowboySVG() {
 }
 
 export function createCowboy(options) {
-  return createRanger({ ...options, artwork: cowboySVG, kind: 'cowboy', weapon: 'rifle' });
+  return createRanger({ ...options, pursue: cowboyPursuit, artwork: cowboySVG, kind: 'cowboy', weapon: 'rifle' });
 }

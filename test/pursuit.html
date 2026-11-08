@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Cowboy pursuit checks</title>
+<style>body{margin:0;background:#faf7ef;font:14px monospace}#ledge{position:fixed;left:calc(100vw - 220px);top:calc(100vh - 180px);width:180px;height:40px;background:#ccc}pre{margin:100px 30px}</style>
+</head><body><div id="ledge"></div><pre id="results">Running…</pre>
+<script type="module">
+import {createTurkeys} from '../dist/sidequest.mjs';
+const results=[],random=Math.random,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const assert=(pass,name)=>{results.push({name,pass:!!pass});if(!pass)throw Error(name)};
+const until=async(predicate,timeout=7000)=>{const end=performance.now()+timeout;while(!predicate()&&performance.now()<end)await wait(20);return!!predicate()};
+let flock,shots=0;
+const root=()=>document.querySelector('sidequest-turkeys').shadowRoot;
+const rider=()=>root().querySelector('.cowboy');
+const x=()=>rider().getBoundingClientRect().left;
+async function setup(options={}) {
+  Math.random=()=>.75;shots=0;
+  flock=createTurkeys({perchSelector:'#ledge',maxTurkeys:1,poopInterval:false,lifetime:[100000,100000],spawnInterval:[100000,100000],autoShotInterval:[400,400],autoShotAccuracy:1,onShot:()=>shots++,respectReducedMotion:false,...options}).start();
+  await wait(80);
+}
+try {
+  await setup();
+  assert(await until(()=>rider().dataset.action==='run'),'cowboy pursues a distant turkey without taking player control');
+  assert(!flock.controlled,'pursuit leaves normal page interaction active');
+  const start=x();await wait(250);
+  assert(x()>start+20&&Number(rider().dataset.velocity)>16,'pursuit runs faster than ordinary patrol');
+  assert(shots===0,'cowboy does not fire while running toward the target');
+  assert(await until(()=>rider().dataset.action==='aim'),'cowboy stops and aims once he reaches firing range');
+  const bird=root().querySelector('[data-character="turkey"]');
+  const horizontal=Math.abs(bird.getBoundingClientRect().x+15-(x()+24));
+  assert(horizontal<=410,'cowboy closes to the preferred range before aiming');
+  const aimedX=x();await wait(150);
+  assert(Math.abs(x()-aimedX)<1,'cowboy stays still while aiming');
+  assert(await until(()=>root().querySelector('[data-character="roast"]')),'pursuit leads to an actual shot and turkey hit');
+  assert(shots===1&&rider().dataset.lastShotMode==='auto','arrival preserves autonomous firing and shot callbacks');
+  flock.destroy();
+
+  await setup();await until(()=>rider().dataset.action==='run');
+  rider().click();const controlledX=x();await wait(350);
+  assert(flock.controlled&&rider().dataset.action==='control','taking control immediately cancels pursuit');
+  assert(Math.abs(x()-controlledX)<1&&shots===0,'AI cannot move or fire while the player is in control');
+  window.dispatchEvent(new KeyboardEvent('keydown',{key:'a',bubbles:true,cancelable:true}));await wait(200);
+  window.dispatchEvent(new KeyboardEvent('keyup',{key:'a',bubbles:true,cancelable:true}));
+  assert(x()<controlledX-10,'player movement still follows the player instead of the turkey');
+  window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+  assert(await until(()=>rider().dataset.action==='run'),'leaving control resumes pursuit of the distant turkey');
+  flock.pause();const pausedX=x();await wait(250);
+  assert(Math.abs(x()-pausedX)<1,'pausing freezes pursuit');
+  flock.resume();assert(await until(()=>rider().dataset.action==='run'),'resuming restarts autonomous pursuit');
+  flock.destroy();
+
+  await setup({autoShotInterval:false});await wait(700);
+  assert(rider().dataset.action==='patrol'&&shots===0,'disabling autonomous shots also disables pursuit');
+  flock.destroy();
+  await setup({lifetime:[200,200]});assert(await until(()=>rider().dataset.action==='run'),'cowboy initially pursues a live target');
+  await wait(400);
+  assert(flock.count===0&&rider().dataset.action==='patrol'&&shots===0,'expired targets cancel pursuit without firing');
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{Math.random=random;flock?.destroy()}
+window.testResults=results;
+document.querySelector('#results').textContent=results.map(result=>`${result.pass?'PASS':'FAIL'} ${result.name}`).join('\n');
+document.title=results.every(result=>result.pass)?'PASS — Cowboy pursuit':'FAIL — Cowboy pursuit';
+</script></body></html>

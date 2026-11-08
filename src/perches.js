@@ -16,12 +16,60 @@ function rgba(value) {
   return colors.get(value);
 }
 
+// Overlay animation and explicitly ignored subtrees cannot supply perches.
+// Keep their cosmetic mutations from invalidating expensive page geometry.
+export function affectsPerches(record, overlay, excludeSelector) {
+  const element = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+  return !!element && element !== overlay && !element.closest(excludeSelector);
+}
+
+// Move already-discovered spans with their elements without repeating hit tests
+// or text discovery. A shared rectangle cache keeps this to one read per element.
+export function trackPerches(surfaces) {
+  const rectangles = new Map(), movement = new Map();
+  for (const surface of surfaces) {
+    if (!surface.geometry || !surface.element.isConnected) continue;
+    let rect = rectangles.get(surface.element);
+    if (!rect) { rect = surface.element.getBoundingClientRect(); rectangles.set(surface.element, rect); }
+    const x = rect.left - surface.geometry.left, y = rect.top - surface.geometry.top;
+    if (x || y) {
+      surface.left += x; surface.right += x; surface.y += y; surface.originLeft += x;
+      movement.set(surface, { x, y });
+      surface.geometry = { left: rect.left, top: rect.top };
+    }
+  }
+  return movement;
+}
+
+// Keep the synchronous inspector for tooling/tests. Runtime scenes consume the
+// same discovery incrementally so a dense page cannot monopolize one frame.
 export function visiblePerches(config) {
+  const discovery = discoverPerches(config);
+  let next;
+  do { next = discovery.next(); } while (!next.done);
+  return next.value;
+}
+
+export function createPerchScan(config) {
+  const discovery = discoverPerches(config);
+  return {
+    step(budget = 2) {
+      const deadline = performance.now() + budget;
+      do {
+        const next = discovery.next();
+        if (next.done) return next.value;
+      } while (performance.now() < deadline);
+      return null;
+    },
+  };
+}
+
+function* discoverPerches(config) {
   // The scene's input shield catches clicks, but its transparent surface is not
   // page paint and must not hide the ledges beneath it from geometry scans.
   const hitAt = config.overlay ? (x, y) => document.elementsFromPoint(x, y).find(element => element !== config.overlay) :
     (x, y) => document.elementFromPoint(x, y);
-  const result = [], styles = new Map(), visibility = new Map(), opacities = new Map(), textGeometry = new Map();
+  const result = [], styles = new Map(), visibility = new Map(), opacities = new Map(), textGeometry = new Map(), geometry = new Map();
   const styleOf = element => {
     if (!styles.has(element)) styles.set(element, getComputedStyle(element));
     return styles.get(element);
@@ -82,7 +130,7 @@ export function visiblePerches(config) {
     if (rgba(style.backgroundColor)[3] > 32 || style.backgroundImage !== 'none' ||
         /^(IMG|SVG|CANVAS|VIDEO|IFRAME)$/.test(element.tagName)) return true;
     for (const [side, distance] of [['Top', y - rect.top], ['Bottom', rect.bottom - y], ['Left', x - rect.left], ['Right', rect.right - x]]) {
-      if (distance < parseFloat(style[`border${side}Width`]) && rgba(style[`border${side}Color`])[3] > 32) return true;
+      if (distance >= 0 && distance < parseFloat(style[`border${side}Width`]) && rgba(style[`border${side}Color`])[3] > 32) return true;
     }
     return [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE &&
       textLines(node).some(line => x >= line.rect.left && x <= line.rect.right && y >= line.y && y <= line.rect.bottom));
@@ -97,25 +145,32 @@ export function visiblePerches(config) {
   const nodes = [...document.querySelectorAll(config.perchSelector)].slice(0, 1500);
   // Hit testing omits pointer-events:none overlays. Conservatively reserve their
   // painted rectangles as well, so decorations cannot become invisible obstacles.
-  const blockers = nodes.filter(element => {
+  const blockers = [];
+  for (const element of nodes) {
+    yield;
     const style = styleOf(element);
-    return style.pointerEvents === 'none' && ['fixed', 'absolute'].includes(style.position) &&
-      visible(element) && painted(element, style);
-  }).map(element => ({ element, rect: element.getBoundingClientRect() }));
+    if (style.pointerEvents === 'none' && ['fixed', 'absolute'].includes(style.position) &&
+        visible(element) && painted(element, style)) blockers.push({ element, rect: element.getBoundingClientRect() });
+  }
   let samples = 0;
-  function add(element, anchor, part, rect, y, insetLeft = 0, insetRight = 0) {
+  function* add(element, anchor, part, rect, y, insetLeft = 0, insetRight = 0) {
     const left = Math.max(0, rect.left + insetLeft), right = Math.min(innerWidth, rect.right - insetRight);
     if (right - left < config.size + 8 || y < config.size || y >= innerHeight) return;
     let start = null;
     const flush = end => {
       if (start !== null && end - start >= config.size + 8) {
-        result.push({ element, anchor, part, left: start, right: end, y, originLeft: rect.left });
+        if (!geometry.has(element)) {
+          const bounds = element.getBoundingClientRect();
+          geometry.set(element, { left: bounds.left, top: bounds.top });
+        }
+        result.push({ element, anchor, part, left: start, right: end, y, originLeft: rect.left, geometry: geometry.get(element) });
       }
       start = null;
     };
     // Split an edge into exposed spans; a covered midpoint cannot hide exposed ends,
     // and a visible midpoint cannot make a covered end walkable.
     for (let x = left; x < right; x += 8) {
+      yield;
       if (++samples > 8000) { flush(x); return; }
       const end = Math.min(x + 8, right), middle = (x + end) / 2;
       const support = hitAt(middle, y + .5);
@@ -137,6 +192,7 @@ export function visiblePerches(config) {
 
   let textCount = 0;
   for (let i = 0; i < Math.min(nodes.length, 1500) && samples < 8000; i++) {
+    yield;
     const element = nodes[i];
     if (element.closest(config.excludeSelector) || !visible(element)) continue;
     const rect = element.getBoundingClientRect();
@@ -145,13 +201,14 @@ export function visiblePerches(config) {
     if (painted(element, style)) {
       // Skip the rounded corners: the top edge only starts after each radius.
       const radius = value => value.endsWith('%') ? rect.width * parseFloat(value) / 100 : parseFloat(value) || 0;
-      add(element, element, 'box', rect, rect.top, radius(style.borderTopLeftRadius), radius(style.borderTopRightRadius));
+      yield* add(element, element, 'box', rect, rect.top, radius(style.borderTopLeftRadius), radius(style.borderTopRightRadius));
       continue;
     }
     // Transparent containers can contribute actual text, never their empty padding.
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     const lines = [];
     for (let node = walker.nextNode(); node && textCount < 6000; node = walker.nextNode()) {
+      yield;
       if (!node.textContent.trim() || node.parentElement.closest(config.perchSelector) !== element ||
           /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|SELECT|OPTION)$/.test(node.parentElement.tagName) || !visible(node.parentElement)) continue;
       textCount++;
@@ -162,7 +219,7 @@ export function visiblePerches(config) {
     // Only the uppermost line is an exposed roof; lower lines have text overhead.
     const top = Math.min(...lines.map(line => line.rect.top));
     for (const line of lines) {
-      if (Math.abs(line.rect.top - top) < 2) add(line.node.parentElement, line.node, line.index, line.rect, line.y);
+      if (Math.abs(line.rect.top - top) < 2) yield* add(line.node.parentElement, line.node, line.index, line.rect, line.y);
     }
   }
   return result;

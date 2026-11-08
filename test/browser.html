@@ -7,6 +7,10 @@ const createTurkeys = (options={}) => createScene({cowboy:false,...options});
 const results = []; const wait = ms => new Promise(r => setTimeout(r,ms));
 const assert = (condition, name) => { results.push({ name, pass: Boolean(condition) }); if (!condition) throw Error(name); };
 const standardRandom = Math.random;
+const until = async predicate => {
+  const end = performance.now() + 700;
+  while (!predicate() && performance.now() < end) await wait(20);
+};
 let flock;
 try {
   flock = createTurkeys({ maxTurkeys: 3, spawnInterval: [100000,100000], lifetime: [100000,100000], perchSelector: '[data-turkey-perch]', respectReducedMotion: false });
@@ -47,14 +51,14 @@ try {
   for (let i = 0; i < 50 && getBird().dataset.action === 'jump'; i++) await wait(20);
   position = new DOMMatrix(getBird().style.transform);
   assert(Math.abs(position.m42 - 200) < 1 && position.m41 >= 300, 'lands on destination ledge');
-  document.querySelector('#b').remove(); await wait(100);
+  document.querySelector('#b').remove(); await until(() => Math.abs(new DOMMatrix(getBird().style.transform).m42 - (innerHeight - 30)) < 1);
   position = new DOMMatrix(getBird().style.transform);
   assert(Math.abs(position.m42 - (innerHeight - 30)) < 1, 'removed ledge safely relocates visitor');
   flock.stop();
   Math.random = () => .6;
   flock = createTurkeys({ maxTurkeys:1, perchSelector:'#a', respectReducedMotion:false, lifetime:[100000,100000] });
   flock.start(); await wait(100);
-  scrollTo(0,80); await wait(100);
+  scrollTo(0,80); await until(() => Math.abs(new DOMMatrix(document.querySelector('sidequest-turkeys').shadowRoot.querySelector('.bird').style.transform).m42 - 70) < 1);
   position = new DOMMatrix(document.querySelector('sidequest-turkeys').shadowRoot.querySelector('.bird').style.transform);
   assert(Math.abs(position.m42 - 70) < 1, 'perch tracks scrolling');
   flock.stop(); scrollTo(0,0);
@@ -86,11 +90,11 @@ try {
   assert(dropping && poopHost.shadowRoot.querySelector('.bird').dataset.action === 'poop', 'turkey pauses to leave a tiny dropping');
   assert(getComputedStyle(dropping).width === '5px' && getComputedStyle(dropping).pointerEvents === 'none', 'dropping is tiny and ignores clicks');
   const dropY = new DOMMatrix(dropping.style.transform).m42;
-  scrollTo(0,40); await wait(100);
+  scrollTo(0,40); await until(() => Math.abs(new DOMMatrix(dropping.style.transform).m42 - (dropY - 40)) < 1);
   assert(Math.abs(new DOMMatrix(dropping.style.transform).m42 - (dropY - 40)) < 1, 'dropping tracks its ledge while scrolling');
   flock.pause(); await wait(450);
   assert(dropping.isConnected, 'pause freezes dropping lifetime');
-  flock.resume(); await wait(500);
+  flock.resume(); await until(() => !poopHost.shadowRoot.querySelector('.dropping'));
   assert(!poopHost.shadowRoot.querySelector('.dropping'), 'droppings expire automatically');
   flock.destroy(); scrollTo(0,0);
   flock = createTurkeys({poopInterval:false,perchSelector:'#a',respectReducedMotion:false});
@@ -101,7 +105,7 @@ try {
   flock.start(); await wait(230);
   poopHost = document.querySelector('sidequest-turkeys');
   assert(poopHost.shadowRoot.querySelector('.dropping'), 'dropping exists before ledge removal');
-  document.querySelector('#a').remove(); await wait(40);
+  document.querySelector('#a').remove(); await until(() => !poopHost.shadowRoot.querySelector('.dropping'));
   assert(!poopHost.shadowRoot.querySelector('.dropping'), 'removed ledge also removes its droppings');
   await wait(200);
   assert(poopHost.shadowRoot.querySelector('.dropping'), 'turkey can leave a dropping on viewport floor');

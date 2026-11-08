@@ -1,7 +1,7 @@
 import { createRanger } from './ranger.js';
 import { orcSVG, flameSVG, arrowSVG } from './orc-art.js';
 import { SCENE_STYLES, ORC_STYLES } from './styles.js';
-import { visiblePerches } from './perches.js';
+import { createPerchScan, affectsPerches } from './perches.js';
 import { BALL_GRAVITY, projectilePoint, segmentHitTime } from './ballistics.js';
 export { orcSVG };
 
@@ -25,17 +25,17 @@ export function createOrcGame(options = {}) {
   if (interval !== false && (!Array.isArray(interval) || interval.length !== 2 || !interval.every(n => Number.isFinite(n) && n > 0) || interval[1] < interval[0])) throw new TypeError('autoShotInterval must be false or [min, max] positive milliseconds');
   if (!Number.isFinite(config.autoShotAccuracy) || config.autoShotAccuracy < 0 || config.autoShotAccuracy > 1) throw new TypeError('autoShotAccuracy must be between 0 and 1');
   for (const key of ['onShot', 'onElementHit']) if (config[key] !== undefined && typeof config[key] !== 'function') throw new TypeError(`${key} must be a function`);
-  let host, root, scenery, archer, media, observer, resizeObserver;
-  let running = false, paused = false, destroyed = false, frame = 0, last = 0, elapsed = 0, dirty = true, nextScan = 0;
+  let host, root, scenery, archer, media, observer, resizeObserver, pendingScan;
+  let running = false, paused = false, destroyed = false, frame = 0, last = 0, elapsed = 0, dirty = true, nextScan = 0, lastScan = -Infinity;
   let targets = [], arrows = [], fires = [];
-  const invalidate = () => { dirty = true; };
+  const invalidate = () => { dirty = true; pendingScan = null; };
   const reduced = () => config.respectReducedMotion && media?.matches;
   const blocked = () => paused || document.hidden || reduced();
   const callback = (name, ...args) => { try { config[name]?.(...args); } catch (error) { console.error(`Orc game ${name} failed`, error); } };
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
 
-  function scan() {
-    targets = visiblePerches({ perchSelector: config.targetSelector, excludeSelector: config.excludeSelector, size: 20, overlay: host }).map(surface => {
+  function scan(perches) {
+    targets = perches.map(surface => {
       const rect = surface.element.getBoundingClientRect();
       const bottom = surface.part === 'box' ? Math.min(innerHeight, rect.bottom) : Math.min(rect.bottom, surface.y + parseFloat(getComputedStyle(surface.element).fontSize) * .85);
       const top = surface.y;
@@ -47,7 +47,7 @@ export function createOrcGame(options = {}) {
       if (!targets.some(target => target.element === fire.target.element)) { fire.element.remove(); return false; }
       return true;
     });
-    dirty = false; nextScan = elapsed + 1000;
+    dirty = false; lastScan = elapsed; nextScan = elapsed + 1000;
   }
   function shoot({ muzzle, dx, dy, speed, power }) {
     if (!running || blocked()) return;
@@ -109,7 +109,16 @@ export function createOrcGame(options = {}) {
     frame = 0;
     if (!running || blocked()) { last = 0; return; }
     const dt = last ? Math.min(50, now - last) : 0; last = now; elapsed += dt;
-    if (dirty || elapsed >= nextScan) scan();
+    if (!pendingScan && ((dirty && elapsed - lastScan >= 250) || elapsed >= nextScan)) {
+      pendingScan = createPerchScan({ perchSelector: config.targetSelector, excludeSelector: config.excludeSelector, size: 20, overlay: host });
+      // An interrupted first discovery must retry immediately: no geometry yet.
+      if (lastScan !== -Infinity) lastScan = elapsed;
+      nextScan = elapsed + 1000;
+    }
+    if (pendingScan) {
+      const perches = pendingScan.step();
+      if (perches) { scan(perches); pendingScan = null; }
+    }
     archer.update(dt, elapsed); paintArrows(); paintFires();
     frame = requestAnimationFrame(tick);
   }
@@ -118,7 +127,7 @@ export function createOrcGame(options = {}) {
     const frozen = blocked(); archer.suspend(frozen);
     host.hidden = Boolean(reduced()); host.dataset.paused = String(frozen);
     if (frozen) { cancelAnimationFrame(frame); frame = 0; last = 0; }
-    else if (!frame) { dirty = true; frame = requestAnimationFrame(tick); }
+    else if (!frame) { pendingScan = null; dirty = true; frame = requestAnimationFrame(tick); }
   }
   const api = {
     start() {
@@ -132,18 +141,20 @@ export function createOrcGame(options = {}) {
       scenery = document.createElement('div'); scenery.setAttribute('aria-hidden', 'true'); root.append(scenery); document.body.append(host);
       archer = createRanger({ root, size: config.size, speed: config.speed, artwork: orcSVG, kind: 'orc', weapon: 'bow', fire: shoot,
         targets: () => targets, autoShotInterval: config.autoShotInterval, autoShotAccuracy: config.autoShotAccuracy });
-      observer = new MutationObserver(invalidate);
+      observer = new MutationObserver(records => {
+        if (records.some(record => affectsPerches(record, host, config.excludeSelector))) invalidate();
+      });
       observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true, attributeFilter: ['style', 'class', 'hidden', 'open'] });
       if (typeof ResizeObserver !== 'undefined') { resizeObserver = new ResizeObserver(invalidate); resizeObserver.observe(document.body); }
       window.addEventListener('resize', invalidate); window.addEventListener('scroll', invalidate, true);
       document.addEventListener('visibilitychange', wake); media.addEventListener('change', wake);
-      running = true; paused = false; elapsed = 0; last = 0; dirty = true; wake(); return api;
+      running = true; paused = false; elapsed = 0; last = 0; lastScan = -Infinity; nextScan = 0; dirty = true; wake(); return api;
     },
     pause() { paused = true; wake(); return api; },
     resume() { if (running) { paused = false; wake(); } return api; },
     stop() {
       running = false; paused = false; cancelAnimationFrame(frame); frame = 0; last = 0;
-      observer?.disconnect(); resizeObserver?.disconnect();
+      pendingScan = null; observer?.disconnect(); resizeObserver?.disconnect();
       window.removeEventListener('resize', invalidate); window.removeEventListener('scroll', invalidate, true);
       document.removeEventListener('visibilitychange', wake); media?.removeEventListener('change', wake);
       archer?.destroy(); archer = null; host?.remove(); targets = []; arrows = []; fires = []; return api;

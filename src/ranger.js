@@ -2,7 +2,7 @@ import { stepHorizontalMotion, strideDuration } from './movement.js';
 import { riflePose, chargeVelocity, previewTrajectory, autoAimPose } from './ballistics.js';
 
 
-export function createRanger({ root, size, speed, fire, targets, autoShotInterval, autoShotAccuracy, artwork, kind, weapon }) {
+export function createRanger({ root, size, speed, fire, targets, autoShotInterval, autoShotAccuracy, artwork, kind, weapon, pursue }) {
   const height = size * 42 / 40;
   const element = document.createElement('button');
   element.type = 'button'; element.className = `game-character ${kind}`; element.innerHTML = artwork();
@@ -28,6 +28,7 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
   let x = Math.max(0, (innerWidth - size) * .35), direction = 1, controlled = false, suspended = false;
   let elapsed = 0, chargeStart = null, pointerId = null, exitPress = false, lastShot = -Infinity;
   let autoAim = null, nextAuto = null, recovery = null, movementVelocity = 0;
+  let pursuit = null, pursuitId = null;
   let mouse = { x: innerWidth / 2, y: innerHeight / 2 };
   const consume = event => { if (event.cancelable) event.preventDefault(); event.stopImmediatePropagation(); };
   const isRider = event => event.composedPath().includes(element);
@@ -36,7 +37,7 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
   function cancelCharge() { chargeStart = null; pointerId = null; exitPress = false; }
   function setControl(value) {
     controlled = value; cancelCharge(); keys.clear(); movementVelocity = 0; shield.hidden = !value;
-    autoAim = null; recovery = null; nextAuto = scheduleAuto();
+    autoAim = null; recovery = null; pursuit = null; pursuitId = null; nextAuto = scheduleAuto();
     element.dataset.controlled = String(value); element.setAttribute('aria-pressed', String(value));
     element.setAttribute('aria-label', value ? `Leave ${kind} control mode` : `Take control of ${kind}. A and D move. Hold mouse to charge, release to fire. Click ${kind} again or press Escape to leave control mode.`);
     if (value) element.focus({ preventScroll: true });
@@ -89,6 +90,7 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
   function updateAuto() {
     if (controlled || suspended) return;
     if (nextAuto === null) nextAuto = scheduleAuto();
+    if (pursuit) return;
     if (!autoAim && !recovery && elapsed >= nextAuto) {
       nextAuto = scheduleAuto();
       const power = .65 + Math.random() * .35;
@@ -122,7 +124,7 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
     element.style.transform = `translate3d(${x}px,0,0)`;
     element.querySelector('svg').style.transform = `scaleX(${direction})`;
     const pose = controlled ? riflePose(x, innerHeight, size, direction, mouse) : autoAim?.pose ?? recovery?.pose ?? { angle: -8 };
-    element.dataset.action = controlled ? 'control' : autoAim ? 'aim' : recovery ? 'fire' : 'patrol';
+    element.dataset.action = controlled ? 'control' : pursuit ? 'run' : autoAim ? 'aim' : recovery ? 'fire' : 'patrol';
     element.querySelector(`.${weapon}`).setAttribute('transform', `rotate(${pose.angle} 19 23)`);
     const flash = element.querySelector('.muzzle-flash');
     if (flash) flash.style.display = elapsed - lastShot < 120 ? 'block' : 'none';
@@ -151,10 +153,18 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
     update(dt, now) {
       elapsed = now;
       let velocity = 0;
+      pursuit = !controlled && !suspended && !recovery && autoShotInterval !== false && pursue
+        ? pursue({ x, bottom: innerHeight, width: innerWidth, size, targets: targets(), targetId: pursuitId }) : null;
+      pursuitId = pursuit?.id ?? null;
+      if (pursuit) autoAim = null;
       updateAuto();
       if (controlled) {
         const input = Number(keys.has('d')) - Number(keys.has('a'));
         const motion = stepHorizontalMotion({ x, velocity: movementVelocity }, input, dt, innerWidth - size, speed);
+        x = motion.x; movementVelocity = motion.velocity; velocity = movementVelocity;
+        if (Math.abs(velocity) > .1) direction = Math.sign(velocity);
+      } else if (pursuit) {
+        const motion = stepHorizontalMotion({ x, velocity: movementVelocity }, pursuit.direction, dt, innerWidth - size, speed * .65);
         x = motion.x; movementVelocity = motion.velocity; velocity = movementVelocity;
         if (Math.abs(velocity) > .1) direction = Math.sign(velocity);
       } else {
@@ -171,7 +181,7 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
       element.style.setProperty('--stride-distance', `${(.5 + pace * 1.5).toFixed(2)}px`);
       render();
     },
-    suspend(value) { suspended = value; if (value) { cancelCharge(); keys.clear(); movementVelocity = 0; element.dataset.walking = 'false'; autoAim = null; recovery = null; nextAuto = scheduleAuto(); } render(); },
+    suspend(value) { suspended = value; if (value) { cancelCharge(); keys.clear(); movementVelocity = 0; element.dataset.walking = 'false'; autoAim = null; recovery = null; pursuit = null; pursuitId = null; nextAuto = scheduleAuto(); } render(); },
     destroy() { abort.abort(); element.remove(); shield.remove(); meter.remove(); hint.remove(); preview.remove(); },
     get controlled() { return controlled; },
   };

@@ -8,6 +8,6 @@
   "exports": { ".": { "types": "./src/sidequest.d.ts", "import": "./dist/sidequest.mjs", "default": "./dist/sidequest.js" } },
   "types": "./src/sidequest.d.ts",
   "files": ["dist", "src/sidequest.d.ts", "README.md", "LICENSE"],
-  "scripts": { "build": "node scripts/build.mjs", "dev": "node scripts/serve.mjs", "test": "node --test" },
+  "scripts": { "build": "node scripts/build.mjs", "dev": "node scripts/serve.mjs", "test": "node scripts/build.mjs && node --test" },
   "license": "MIT"
 }

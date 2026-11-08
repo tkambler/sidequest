@@ -14,7 +14,7 @@ const x=()=>new DOMMatrix(rider().style.transform).m41;
 try{
   Math.random=()=>.75;
   flock=createTurkeys({maxTurkeys:1,autoShotInterval:false,cowboySpeed:2000,perchSelector:'#ledge',poopInterval:false,lifetime:[100000,100000],spawnInterval:[100000,100000],respectReducedMotion:false});
-  flock.start();await wait(100);
+  flock.start();await until(()=>flock.count===1);
   assert(root().querySelectorAll('.cowboy').length===1&&flock.count===1,'one cowboy mounts separately from the turkey count');
   assert(rider().tagName==='BUTTON'&&rider().getAttribute('aria-label'),'cowboy is a labeled keyboard-accessible button');
   const patrolX=x();await wait(180);

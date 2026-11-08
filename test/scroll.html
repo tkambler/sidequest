@@ -1,0 +1,75 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Perch scroll tracking</title>
+<style>
+body{margin:0;height:2400px;background:#fafafa;font:18px Arial}
+#scroller{position:absolute;left:120px;top:180px;width:600px;height:550px;overflow:auto;background:#e9edf1}
+#content{position:relative;width:1100px;height:1600px}
+#card{position:absolute;left:180px;top:240px;width:320px;height:100px;background:white;border:1px solid #aaa;border-radius:6px}
+#title{display:block;margin:40px 12px 0;padding:0;border:0;background:transparent;font:20px Arial;text-align:left}
+#results{position:fixed;right:10px;top:10px;max-width:550px;white-space:pre-wrap}
+</style></head><body>
+<div id="scroller"><div id="content"><article id="card"><button id="title">A task title with room for turkeys</button></article></div></div><pre id="results">Running…</pre>
+<script type="module">
+import {createTurkeys} from '../dist/sidequest.mjs';
+const results=[],originalRandom=Math.random,originalQuery=document.querySelectorAll;
+const assert=(pass,name)=>{results.push({name,pass:!!pass});if(!pass)throw Error(name)};
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const until=async predicate=>{const end=performance.now()+1500;while(!predicate()&&performance.now()<end)await wait(20)};
+const scroller=document.querySelector('#scroller'),content=document.querySelector('#content');
+let flock,scans=0;
+document.querySelectorAll=function(selector){if(selector==='#card'||selector==='#title')scans++;return originalQuery.call(this,selector)};
+try {
+  for(const selector of ['#card','#title']) {
+    scrollTo(0,0);scroller.scrollTop=0;scroller.scrollLeft=0;content.style.transform='';
+    Math.random=()=>.75;
+    flock=createTurkeys({perchSelector:selector,cowboy:false,speed:.000001,maxTurkeys:1,poopInterval:[150,150],poopLifetime:10000,lifetime:[100000,100000],spawnInterval:[100000,100000],respectReducedMotion:false}).start();
+    await until(()=>flock.count===1);
+    const host=document.querySelector('sidequest-turkeys'),bird=host.shadowRoot.querySelector('.bird'),anchor=document.querySelector(selector);
+    assert(!!bird,`${selector}: turkey arrives`);
+    const point=()=>{const matrix=new DOMMatrix(bird.style.transform);return{x:matrix.m41,y:matrix.m42+30}};
+    const initial=point(),rect=anchor.getBoundingClientRect(),offset={x:initial.x-rect.left,y:initial.y-rect.top};
+    assert(initial.y<innerHeight-100,`${selector}: turkey starts on the requested perch`);
+    await until(()=>host.shadowRoot.querySelector('.dropping'));
+    const dropping=host.shadowRoot.querySelector('.dropping'),dropMatrix=new DOMMatrix(dropping.style.transform);
+    const dropOffset={x:dropMatrix.m41-anchor.getBoundingClientRect().left,y:dropMatrix.m42-anchor.getBoundingClientRect().top};
+    scans=0;
+    for(const mode of ['page','nested vertical','nested horizontal','translated content']) {
+      let worst=0,worstDropping=0;
+      for(let step=1;step<=8;step++) {
+        if(mode==='page')scrollTo(0,step*3);
+        else if(mode==='nested vertical')scroller.scrollTop=step*3;
+        else if(mode==='nested horizontal')scroller.scrollLeft=step*3;
+        else content.style.transform=`translate(${step*2}px,${step}px)`;
+        await frames();
+        const current=point(),bounds=anchor.getBoundingClientRect(),drop=new DOMMatrix(dropping.style.transform);
+        worst=Math.max(worst,Math.abs(current.x-bounds.left-offset.x),Math.abs(current.y-bounds.top-offset.y));
+        worstDropping=Math.max(worstDropping,Math.abs(drop.m41-bounds.left-dropOffset.x),Math.abs(drop.m42-bounds.top-dropOffset.y));
+      }
+      assert(worst<1,`${selector}: turkey follows ${mode} every frame (${worst.toFixed(2)}px drift)`);
+      assert(worstDropping<1,`${selector}: dropping follows ${mode} every frame`);
+    }
+    assert(scans<=5,`${selector}: scrolling does not force discovery every frame`);
+    flock.destroy();
+    assert(!document.querySelector('sidequest-turkeys'),`${selector}: teardown removes the scene`);
+  }
+  scrollTo(0,0);scroller.scrollTop=0;scroller.scrollLeft=0;content.style.transform='';
+  Math.random=()=>.4;
+  flock=createTurkeys({perchSelector:'#card,#title',cowboy:false,speed:.000001,maxTurkeys:1,poopInterval:false,lifetime:[100000,100000],spawnInterval:[100000,100000],respectReducedMotion:false}).start();
+  await until(()=>flock.count===1);
+  const airborne=()=>document.querySelector('sidequest-turkeys').shadowRoot.querySelector('.bird');
+  await until(()=>airborne()?.dataset.action==='jump');
+  assert(airborne()?.dataset.action==='jump','turkey begins a jump between card and title');
+  flock.pause();
+  const before=new DOMMatrix(airborne().style.transform);
+  scroller.scrollLeft=12;scroller.scrollTop=18;
+  flock.resume();
+  await new Promise(requestAnimationFrame);
+  const after=new DOMMatrix(airborne().style.transform);
+  assert(Math.abs(after.m41-before.m41+12)<1&&Math.abs(after.m42-before.m42+18)<1,'airborne turkey path follows scrolling without a jump in position');
+  flock.destroy();
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{flock?.destroy();Math.random=originalRandom;document.querySelectorAll=originalQuery;scrollTo(0,0)}
+window.testResults=results;
+document.querySelector('#results').textContent=results.map(result=>`${result.pass?'PASS':'FAIL'} ${result.name}`).join('\n');
+document.title=results.every(result=>result.pass)?'PASS — Perch scroll tracking':'FAIL — Perch scroll tracking';
+</script></body></html>
