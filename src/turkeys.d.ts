@@ -59,3 +59,34 @@ export function createTurkeys(options?: TurkeyOptions): TurkeyFlock;
 export function turkeySVG(): string;
 export function cowboySVG(): string;
 export function roastSVG(): string;
+
+export interface OrcOptions {
+  size?: number;
+  speed?: number;
+  /** Active milliseconds between automatic arrow attempts. Default [3000, 6500]. */
+  autoShotInterval?: [number, number] | false;
+  autoShotAccuracy?: number;
+  /** Active flame lifetime in ms. Default 10000. */
+  fireLifetime?: number;
+  maxFires?: number;
+  maxArrows?: number;
+  targetSelector?: string;
+  excludeSelector?: string;
+  respectReducedMotion?: boolean;
+  onShot?: (shot: {power: number}) => void;
+  onElementHit?: (element: Element) => void;
+}
+export interface OrcGame {
+  start(): OrcGame;
+  pause(): OrcGame;
+  resume(): OrcGame;
+  stop(): OrcGame;
+  destroy(): void;
+  readonly running: boolean;
+  readonly paused: boolean;
+  readonly controlled: boolean;
+  readonly fireCount: number;
+  readonly arrowCount: number;
+}
+export function createOrcGame(options?: OrcOptions): OrcGame;
+export function orcSVG(): string;

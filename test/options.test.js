@@ -29,7 +29,7 @@ test('classic build exposes the same supported public API', async () => {
   const { runInNewContext } = await import('node:vm');
   const context = { window: {} };
   runInNewContext(await readFile(new URL('../dist/turkeys.js', import.meta.url), 'utf8'), context);
-  assert.deepEqual(Object.keys(context.window.TinyTurkeys).sort(),['cowboySVG','createTurkeys','roastSVG','turkeySVG']);
+  assert.deepEqual(Object.keys(context.window.TinyTurkeys).sort(),['cowboySVG','createOrcGame','createTurkeys','orcSVG','roastSVG','turkeySVG']);
   assert.equal(context.window.TinyTurkeys.cowboySVG(), cowboySVG());
 });
 test('spawn only accepts turkeys', () => {

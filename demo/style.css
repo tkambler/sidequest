@@ -13,3 +13,7 @@ pre:focus-visible{outline:3px solid var(--gold);outline-offset:-3px}
 @media(max-width:640px){.specimen-bird.duo{gap:8px}.specimen-bird.duo>span{height:120px}}
 
 .rider-instructions{font-size:12px;line-height:1.7;color:var(--muted);max-width:440px;margin:0 0 24px}.rider-instructions strong{color:var(--ink)}
+
+.game-picker{display:flex;align-items:center;gap:12px;margin:0 0 18px;font:11px var(--mono);color:var(--muted)}
+.game-picker select{font:12px var(--body);color:var(--ink);background:var(--paper);border:1px solid #a5ad98;border-radius:4px;padding:7px 28px 7px 10px;max-width:100%}
+.game-picker select:focus-visible{outline:3px solid #a34c27;outline-offset:3px}

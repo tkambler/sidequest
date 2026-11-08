@@ -11,8 +11,9 @@
   <main>
     <section class="intro" aria-labelledby="headline">
       <div class="intro-copy"><p class="eyebrow"><span class="little-dot"></span> A seasonal, very unserious JavaScript library</p>
-      <h1 id="headline">Your website.<br>A little more <em>gobble.</em></h1>
+      <h1 id="headline">Your website.<br>A little more <em id="headline-verb">gobble.</em></h1>
       <p class="lede">Tiny turkeys. Big holiday energy. Let a few pixel-art visitors wander, flap, and hop around your webpage.</p>
+      <div class="game-picker"><label for="game-mode">Choose your game</label><select id="game-mode"><option value="turkeys">Cowboy &amp; turkeys</option><option value="orc">Orc archer</option></select></div>
       <p class="rider-instructions"><strong>Meet your tiny trail buddy.</strong> Click the cowboy to take control. A / D move, the mouse aims, and holding then releasing a click fires a charged shot. Click him again or press Escape to return to patrol. Page clicks are blocked in control mode.</p>
       <div class="actions"><button class="primary" id="toggle" aria-pressed="false"><span class="button-icon" aria-hidden="true">✦</span> Release the visitors <span aria-hidden="true">↗</span></button><span class="side-note">No feeding required.</span></div>
       <p class="live-note" id="status" role="status">The flock is waiting in the wings.</p>
@@ -24,12 +25,12 @@
       </div>
     </section>
     <section class="playground" aria-labelledby="playground-title">
-      <div class="section-heading"><div><p class="eyebrow">Their page now, technically</p><h2 id="playground-title">A place to stretch their legs.</h2></div><div class="flock-meter"><span class="little-dot"></span><span id="count">0</span> / 6 visitors</div></div>
+      <div class="section-heading"><div><p class="eyebrow">Their page now, technically</p><h2 id="playground-title">A place to stretch their legs.</h2></div><div class="flock-meter"><span class="little-dot"></span><span id="count">0</span> <span id="count-type">/ 6 visitors</span></div></div>
       <div class="habitat">
         <div class="habitat-label">LIVE HABITAT <span aria-hidden="true">↘</span></div>
-        <div class="perch perch-a" data-turkey-perch><span class="perch-symbol">Aa</span><span>Headlines make lovely sidewalks.</span></div>
-        <div class="perch perch-b" data-turkey-perch><span class="perch-symbol">⌁</span><span>A quick flap. A little hop.</span></div>
-        <div class="perch perch-c" data-turkey-perch><span class="perch-symbol">↗</span><span>Absolutely nowhere to be.</span></div>
+        <div class="perch perch-a" data-turkey-perch><span class="perch-symbol">Aa</span><span class="perch-copy">Headlines make lovely sidewalks.</span></div>
+        <div class="perch perch-b" data-turkey-perch><span class="perch-symbol">⌁</span><span class="perch-copy">A quick flap. A little hop.</span></div>
+        <div class="perch perch-c" data-turkey-perch><span class="perch-symbol">↗</span><span class="perch-copy">Absolutely nowhere to be.</span></div>
         <span class="habitat-note">Psst. They'll explore the rest of this page, too.</span>
         <button id="add" class="add-button" disabled>+ Invite one more</button>
       </div>
@@ -39,7 +40,7 @@
       <div class="code-panel"><div class="code-header"><span>YOUR PAGE · HTML</span><button id="copy">Copy snippet</button></div><pre tabindex="0" role="region" aria-label="Installation code"><code><span class="code-muted">&lt;!-- Add before &lt;/body&gt; --&gt;</span>
 &lt;script src="./turkeys.js"&gt;&lt;/script&gt;
 &lt;script&gt;
-  <span class="code-gold">const</span> flock = TinyTurkeys.createTurkeys();
+  <span class="code-gold">const</span> flock = TinyTurkeys.<span id="snippet-factory">createTurkeys</span>();
   flock.<span class="code-gold">start</span>();
 &lt;/script&gt;</code></pre><div class="code-foot">Serve <a href="../dist/turkeys.js" download>turkeys.js ↓</a> alongside your page. You're ready.</div></div>
     </section>

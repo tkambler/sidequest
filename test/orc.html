@@ -1,0 +1,56 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Orc browser checks</title><style>body{margin:0;height:1800px;background:#faf7ef;font:14px monospace}#target{position:absolute;left:650px;top:900px;width:240px;height:40px;background:#bbb}#results{position:absolute;top:100px;left:30px}</style></head><body><button id="page-button">Normal page button</button><div id="target" data-orc-target>Target</div><pre id="results">Running…</pre>
+<script type="module">
+import {createOrcGame} from '../dist/turkeys.mjs';
+const results=[],originalRandom=Math.random,wait=ms=>new Promise(r=>setTimeout(r,ms));
+const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
+const until=async(predicate,timeout=4000)=>{for(let t=0;t<timeout;t+=20){if(predicate())return true;await wait(20)}return false};
+let game,shots=0,hits=0,clicks=0;const target=document.querySelector('#target'),originalMarkup=target.outerHTML;
+document.querySelector('#page-button').onclick=()=>clicks++;
+const root=()=>document.querySelector('tiny-orcs').shadowRoot;
+async function setup(options={}){
+  Math.random=()=>.75;shots=0;hits=0;
+  game=createOrcGame({targetSelector:'#target',autoShotInterval:[150,150],autoShotAccuracy:1,fireLifetime:900,onShot:()=>shots++,onElementHit:element=>{if(element===target)hits++},respectReducedMotion:false,...options});
+  game.start();await wait(80);
+}
+try{
+  await setup();
+  assert(root().querySelectorAll('.orc').length===1&&!document.querySelector('tiny-turkeys'),'orc is a separate game with one archer');
+  assert(!root().querySelector('.cowboy')&&!root().querySelector('.bird')&&root().querySelector('.bow'),'orc scene has a bow and no cowboy or turkey');
+  const position=root().querySelector('.orc').style.transform;await wait(60);
+  assert(root().querySelector('.orc').style.transform!==position,'orc patrols the viewport floor');
+  document.querySelector('#page-button').click();assert(clicks===1,'page works while the orc patrols');
+  assert(await until(()=>root().querySelector('.flaming-arrow')),'orc occasionally fires a flaming arrow');
+  const arrow=root().querySelector('.flaming-arrow');
+  assert(arrow.querySelector('.arrow-flame')&&shots===1,'arrow carries a flame and emits one shot callback');
+  assert(await until(()=>game.fireCount===1),'an actual arrow hit ignites the element');
+  assert(arrow.dataset.outcome==='hit'&&hits===1,'hit is detected by the travelling arrow');
+  let patch=root().querySelector('.element-fire');
+  assert(patch.querySelectorAll('.fire-tongue').length===3,'hit creates three tiny pixel flames');
+  assert(target.outerHTML===originalMarkup,'fire is an overlay and does not modify the page element');
+  assert(getComputedStyle(patch).pointerEvents==='none','flames do not intercept page clicks');
+  root().querySelector('.orc').click();assert(game.controlled,'orc supports click-to-control play');
+  document.querySelector('#page-button').click();assert(clicks===1,'orc control mode blocks page clicks');
+  const before=patch.getBoundingClientRect();scrollTo(0,40);await wait(80);
+  assert(Math.abs(patch.getBoundingClientRect().top-before.top+40)<1,'flames stay attached during scrolling');
+  target.style.left='730px';await wait(80);
+  assert(Math.abs(patch.getBoundingClientRect().left-before.left-80)<1,'flames follow a horizontally moved element');
+  game.pause();await wait(950);assert(patch.isConnected&&game.fireCount===1,'pause freezes flame lifetime');
+  game.resume();await wait(1000);assert(!patch.isConnected&&game.fireCount===0,'fires burn out and clean themselves up');
+  window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));assert(!game.controlled,'Escape returns the orc to patrol');
+  assert(await until(()=>game.fireCount===1),'patrol resumes firing after control mode ends');
+  target.remove();await wait(80);assert(game.fireCount===0&&!root().querySelector('.element-fire'),'removing an element removes its flames');
+  game.stop();assert(!document.querySelector('tiny-orcs')&&!game.controlled,'stop removes the entire orc scene');
+  document.querySelector('#page-button').click();assert(clicks===2,'stopping removes all page click blockers');
+  document.body.append(target);target.style.left='650px';scrollTo(0,0);
+  game.start();await wait(80);assert(root().querySelectorAll('.orc').length===1&&!game.controlled,'restart creates one fresh patrol archer');game.destroy();
+  let threw=false;try{game.start()}catch{threw=true}assert(threw,'destroy permanently stops this game');
+  await setup({autoShotAccuracy:0,fireLifetime:5000});
+  assert(await until(()=>root().querySelector('.flaming-arrow')),'inaccurate aim still fires a flaming arrow');const miss=root().querySelector('.flaming-arrow');
+  assert(await until(()=>miss.dataset.outcome==='miss'),'inaccurate arrows can miss the element');
+  assert(game.fireCount===0&&hits===0,'misses do not create flames');game.destroy();
+  await setup({autoShotInterval:false});await wait(1000);assert(shots===0&&game.arrowCount===0,'autonomous shooting can be disabled');game.destroy();
+  target.style.display='none';await setup();await wait(1100);assert(shots===0&&game.fireCount===0,'orc ignores hidden page elements');game.destroy();target.style.display='';
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{Math.random=originalRandom;game?.stop()}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Orc':'FAIL — Orc';
+</script></body></html>

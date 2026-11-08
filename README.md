@@ -163,3 +163,58 @@ page input isolation, movement physics, speed-based leg animation, charging, aim
 as `window.testResults`.
 
 MIT licensed.
+
+## Orc archer game
+
+The demo's **Choose your game** picker offers a separate **Orc archer** mode.
+The cowboy and turkey game remains available. Switching games removes the old
+scene and starts the selected one if a game was already running.
+
+```js
+import { createOrcGame } from './dist/turkeys.mjs';
+const game = createOrcGame();
+game.start();
+```
+
+For a plain script, use `TinyTurkeys.createOrcGame()` from the same `turkeys.js`
+bundle. `orcSVG()` exports the green, horned, armored archer artwork.
+
+One orc patrols the viewport floor, occasionally aiming and firing a flaming
+arrow at an exposed page element. Accurate shots compensate for gravity;
+inaccurate ones aim wide. Actual arrow collisions decide whether the element
+ignites. A hit creates three tiny pixel flames attached to the impact point.
+They follow scrolling, resizing, and element movement, then burn out. The page's
+DOM, styles, and content are never altered by a hit. Removed or hidden targets
+lose their flames. Repeated hits refresh a fire instead of stacking unlimited
+flames on the same element.
+
+Click the orc to take control with the same A/D movement, momentum, mouse aiming,
+charged shots, trajectory guide, and input isolation as the cowboy. Click again
+or press Escape to return to autonomous patrol. Orc mode does not play cowboy
+or turkey sound effects.
+
+```js
+createOrcGame({
+  size: 48,
+  speed: 420,
+  autoShotInterval: [3000, 6500], // false for manual shots only
+  autoShotAccuracy: .6,
+  targetSelector: '[data-orc-target],button,h1,h2', // Optional narrower candidates
+  excludeSelector: '[data-orc-ignore],[data-turkey-ignore]',
+  fireLifetime: 10000, // Active milliseconds
+  maxFires: 8,
+  maxArrows: 16,
+  respectReducedMotion: true,
+  onShot: ({ power }) => {},
+  onElementHit: element => {},
+}).start();
+```
+
+`start`, `pause`, `resume`, `stop`, and `destroy` have the same lifecycle semantics
+as the turkey game. Read `running`, `paused`, `controlled`, `arrowCount`, and
+`fireCount` for status. Pauses, hidden tabs, and reduced-motion preferences freeze
+the game and cancel held controls. `stop()` removes the archer, arrows, fire,
+listeners, observers, and click shield. A conservative visible-surface detector
+chooses targets; invisible boxes, unsupported painted shapes, and shadow-root
+contents are not inferred. Arrows can hit a visible intervening target along
+their trajectory. `/test/orc.html` checks the game in a real browser.
