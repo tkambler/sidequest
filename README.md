@@ -1,8 +1,8 @@
 # Sidequest
 
 A dependency-free library of opt-in pixel-art games for any web page.
-Choose **Cowboy & turkeys** or **Orc archer** in the demo.
-Each mode is available as a standalone factory, with module and plain-script
+Choose **Cowboy & turkeys**, **Orc archer**, or **Santa & presents** in the demo.
+Launch any mode with `start({ mode, ...options })`, with module and plain-script
 support and no external artwork to load.
 
 ## Demo
@@ -11,6 +11,8 @@ support and no external artwork to load.
 npm run dev
 ```
 
+Three yellow cards show turkey and cowboy, Santa and kids, and the orc together,
+regardless of the selected game.
 Open **http://localhost:4173/demo/**, choose a game, and use its start button. In
 **Cowboy & turkeys**, choose **Release the visitors**. The supplied
 gobble clip plays once at 50% volume. **Gather the visitors** removes the scene.
@@ -55,10 +57,11 @@ are dropped. Setting `autoShotInterval: false` disables autonomous pursuit too. 
 
 ## Add to any page
 
-With the package in your project, import either game:
+With the package in your project:
 
 ```js
-import { createTurkeys, createOrcGame } from 'sidequest';
+import { start } from 'sidequest';
+const game = start({ mode: 'turkeys' });
 ```
 
 
@@ -67,20 +70,19 @@ Copy `dist/sidequest.js` alongside your page and place this before `</body>`:
 ```html
 <script src="./sidequest.js"></script>
 <script>
-  const flock = Sidequest.createTurkeys();
-  // Start from your own holiday toggle:
-  flock.start();
+  const game = Sidequest.start({ mode: 'turkeys' });
 </script>
 ```
 
 Or use an ES module:
 
 ```js
-import { createTurkeys } from './dist/sidequest.mjs';
-const flock = createTurkeys();
+import { start } from './dist/sidequest.mjs';
+let flock;
 document.querySelector('#holiday-mode').addEventListener('click', () => {
-  if (flock.running) flock.stop();
-  else flock.start();
+  if (flock?.running) flock.stop();
+  else if (flock) flock.start();
+  else flock = start({ mode: 'turkeys' });
 });
 ```
 
@@ -90,8 +92,13 @@ cowboy is an accessible button. Nothing mounts until `start()`.
 
 ## API
 
+`start({ mode, ...options })` launches immediately and returns the selected game's
+controller. `mode` is required: `'turkeys'` (turkey and cowboy), `'orc'`, or `'santa'`
+(Santa and children). Remaining options belong to that mode. Unknown modes throw
+before mounting anything. Call it after `document.body` exists.
+
 ```js
-flock.start();    // Start a new scene, or resume an already running one
+const flock = start({ mode: 'turkeys' }); // Launch immediately
 flock.spawn();    // Invite a turkey immediately; returns success/failure
 flock.pause();    // Freeze the scene and cancel held controls
 flock.resume();
@@ -104,17 +111,20 @@ flock.paused;
 flock.controlled;// Whether the cowboy is under player control
 ```
 
-`start`, `stop`, `pause`, and `resume` return the flock for chaining. Call `start()`
-after `document.body` exists. Initial geometry discovery runs across animation
+The controller methods `start`, `stop`, `pause`, and `resume` return the flock
+for chaining. Initial geometry discovery runs across animation
 frames; `spawn()` returns false until it finishes, and automatic arrivals wait
 for it too. Each instance owns its own scene and cleans it up.
 `turkeySVG()`, `cowboySVG()`, and `roastSVG()` export self-contained decorative
-SVG strings for previews. TypeScript declarations are included.
+SVG strings for previews. TypeScript declarations infer the controller and options
+from `mode`. The older `createTurkeys`, `createOrcGame`, and `createSantaGame`
+exports remain available for compatibility; they create idle controllers.
 
 ## Options
 
 ```js
-const flock = createTurkeys({
+const flock = start({
+  mode: 'turkeys',
   maxTurkeys: 5,
   spawnInterval: [7000, 14000],
   lifetime: [45000, 90000],    // Live turkey lifetime, active ms
@@ -206,18 +216,22 @@ The cowboy and turkey game remains available. Switching games removes the old
 scene and starts the selected one if a game was already running.
 
 ```js
-import { createOrcGame } from './dist/sidequest.mjs';
-const game = createOrcGame();
-game.start();
+import { start } from './dist/sidequest.mjs';
+const game = start({ mode: 'orc' });
 ```
 
-For a plain script, use `Sidequest.createOrcGame()` from the same `sidequest.js`
+For a plain script, use `Sidequest.start({ mode: 'orc' })` from the same `sidequest.js`
 bundle. `orcSVG()` exports the green, horned, armored archer artwork.
 
 One orc patrols the viewport floor, occasionally aiming and firing a flaming
-arrow at an exposed page element. Accurate shots compensate for gravity;
-inaccurate ones aim wide. Actual arrow collisions decide whether the element
-ignites. A hit creates three tiny pixel flames attached to the impact point.
+arrow at an exposed page element. He varies targets, favoring elements he has
+not shot recently and skipping unreachable ones. Accurate shots compensate for gravity;
+inaccurate ones aim wide. Arrows pass through intervening elements and only
+collide with their intended target. Player shots target the visible surface under
+the mouse on release. Actual arrow collisions decide whether that target ignites. Collision bounds reuse the turkey perch scan: visible fills, top border
+strips, and text ink bounds, excluding empty container padding and transparent
+border interiors. Text uses line bounds rather than individual glyph pixels.
+A hit creates three tiny pixel flames attached to the impact point.
 They follow scrolling, resizing, and element movement, then burn out. The page's
 DOM, styles, and content are never altered by a hit. Removed or hidden targets
 lose their flames. Repeated hits refresh a fire instead of stacking unlimited
@@ -226,10 +240,12 @@ flames on the same element.
 Click the orc to take control with the same A/D movement, momentum, mouse aiming,
 charged shots, trajectory guide, and input isolation as the cowboy. Click again
 or press Escape to return to autonomous patrol. Orc mode does not play cowboy
-or turkey sound effects.
+or turkey sound effects. Each arrow fired in the demo plays
+`demo/assets/arrow-swish.mp3` at **40% volume**, for both player and autonomous shots.
 
 ```js
-createOrcGame({
+start({
+  mode: 'orc',
   size: 48,
   speed: 420,
   autoShotInterval: [3000, 6500], // false for manual shots only
@@ -253,3 +269,139 @@ listeners, observers, and click shield. A conservative visible-surface detector
 chooses targets; invisible boxes, unsupported painted shapes, and shadow-root
 contents are not inferred. Arrows can hit a visible intervening target along
 their trajectory. `/test/orc.html` checks the game in a real browser.
+
+## Santa & presents
+
+Choose **Santa & presents** in the demo and click **Start Christmas**. Boys and
+girls occasionally appear on exposed page ledges or the viewport floor, waving
+for a present. Santa flies in from either side, brakes into a gentle landing
+beside each waiting child, and leaves a wrapped gift. Santa keeps both hands on
+the reins with a tiny arm movement, makes subtle eye glances, and occasionally
+blinks;
+the children wave both hands. The reindeer gallop in flight, with offset strides
+and a gentle bob, while the sleigh trails on a damped spring and the reins flex.
+Legs settle when the team lands. He gains altitude between
+stops and flies away after the deliveries. Acceleration-limited steering,
+velocity, braking distance, and damped final approach give the sleigh momentum.
+Children who already have a present do not receive another. Each child and
+their present fade away four active seconds after delivery.
+
+Small pixel snowflakes drift across the screen and build tiny, bounded piles
+on exposed surfaces. Blue-gray edges keep the snow visible on light pages.
+Snow, children, and gifts are decorative overlays. Santa is a button for optional
+pilot control; page interactions work during automatic deliveries. The page's
+own markup is preserved, and children and gifts follow moving ledges.
+
+```js
+import { start } from './dist/sidequest.mjs';
+const christmas = start({
+  mode: 'santa',
+  maxChildren: 6,
+  size: 28,                     // Child height, CSS pixels
+  sleighSize: 184 * 2 / 3,               // Sleigh + reindeer width, CSS pixels
+  spawnInterval: [5000, 10000],
+  visitInterval: [8000, 15000],   // Before first visit and between trips
+  lifetime: [60000, 100000],     // Waiting child lifetime, active ms
+  giftLifetime: 4000,            // Child and gift leave after delivery
+  snow: true,
+  interactive: true,            // Click Santa to pilot; false for decoration
+  flightSpeed: 320,             // Player flight, CSS px/second
+  respectReducedMotion: true,
+});
+christmas.spawn();               // Alternates boy/girl; false if no room
+christmas.spawn('girl');
+christmas.pause();
+christmas.resume();
+christmas.stop();                // Removes the entire scene, including snow
+```
+
+Plain-script builds expose `Sidequest.start({ mode: 'santa' })`. The controller supports
+`start`, `pause`, `resume`, `stop`, `destroy`, and the read-only properties
+`running`, `paused`, `count`, `waitingCount`, `giftCount`, `delivering`,
+`controlled`, `deliveredCount`, and `airborneGiftCount`.
+`childSVG('boy' | 'girl')`, `santaSVG()`, and `giftSVG()` provide self-contained
+pixel artwork without external image requests. The build also produces
+`dist/santa-sleigh.svg`, a standalone vector of Santa, his sleigh, and both
+reindeer, traced from the supplied reference with the trailing snow removed.
+
+`perchSelector` narrows ledge discovery; `[data-santa-perch]` is included by
+default. `excludeSelector` defaults to
+`'[data-turkey-ignore],[data-santa-ignore]'`. Ledges need room for a child,
+gift, and sleigh, so narrow surfaces are skipped. Visible space can limit the
+number of children below `maxChildren`. Reduced motion hides and freezes the
+scene by default; hiding the tab or pausing freezes all active lifetimes,
+deliveries, waving, and snow. Stop/restart creates a fresh scene. Removing a
+ledge relocates its visitors to the viewport floor. Snow piles are limited to
+100 small patches, each at most six pixels deep, and disappear with their ledge
+or when they leave the viewport.
+
+`/test/santa.html` checks full delivery trips, waving, gifts, moving ledges,
+pausing, snow rendering, cleanup, and restart with a deterministic frame clock.
+Unit tests verify bounded sleigh acceleration and settled landings at multiple
+frame rates.
+
+### Pilot Santa
+
+Click Santa while he is visiting to take control of the sleigh. **W / A / S / D**
+fly with acceleration, coasting, braking, and banking. **W** climbs and **S**
+descends; lower the team onto a wide ledge to land. The team stays within the
+viewport while you pilot. **Click Santa again or press Escape** to return to
+automatic deliveries. Enter also exits control; the Santa button supports
+keyboard activation and a visible focus ring.
+
+Aim with the mouse, **hold the primary mouse button to charge for up to 1.5
+seconds, then release to toss a present**. A dotted gold arc previews the
+opening flight using the same gravity and launch speed as the real gift.
+**Space** can also charge/release a toss toward the current aim. A short toss
+works well beside a child. Tossed gifts pass through page elements, so headings, cards, and other content
+cannot obstruct a delivery. A present reaching a waiting child, or landing close
+beside them on their ledge, counts as a delivery. The child celebrates and the
+usual four-second departure timer begins. Missed gifts land briefly or leave
+the screen, then disappear. The HUD keeps a cumulative delivery count.
+
+Automatic deliveries pause while you pilot. Page clicks and ordinary keyboard
+input are captured during control, including over embedded content. Pausing,
+hiding the tab, reduced motion, or losing focus clears held controls and any
+charge; resuming never releases an unintended gift. Enabling reduced motion
+also exits pilot mode, so the hidden scene cannot capture page input. Stop/destroy removes all
+input listeners and control UI. `interactive: false` keeps Santa decorative.
+`flightSpeed` defaults to 320 CSS pixels per second. `controlled`,
+`deliveredCount`, and `airborneGiftCount` expose the current state; the delivery
+counter resets when the scene stops. `/test/santa-controls.html` covers player
+flight, throwing, input isolation, handoff, and cleanup in a browser.
+
+### Optional cowboy opponent
+
+The Christmas game has no cowboy by default. Set `cowboy: true` to add the turkey game's cowboy. He patrols the viewport
+floor, runs closer when Santa is too far away, aims his rifle, and fires real
+ballistic shots at the sleigh. Some shots miss, and flying away from a shot can
+avoid it. His bullets target only Santa's team; children, gifts, and page content
+are unaffected. The cowboy stays autonomous in this mode and cannot take over
+Santa's controls.
+
+A hit produces pixel sparks and sends Santa's team into a gravity-driven crash.
+Pilot control and any held charge are canceled immediately, restoring page input.
+The team tumbles past page ledges to the viewport floor, lands with a dust puff,
+and disappears. After **3.5 active seconds**, a fresh Santa flies in and resumes
+automatic deliveries to waiting children. He returns even if no child is waiting
+yet. Click him again to resume piloting. Completed deliveries and waiting children
+are preserved, and each crash counts once. The cowboy stops targeting the downed
+team. Crash, disappearance, recovery, cowboy movement, aiming, and shots all share
+the scene's pause/visibility clock and are removed by stop/destroy.
+
+```js
+start({
+  mode: 'santa',
+  cowboy: true,                    // Opt in; defaults to false
+  cowboySize: 48,
+  cowboyShotInterval: [3500, 6500], // false disables shots and pursuit
+  cowboyAccuracy: .65,
+  respawnDelay: 3500,             // Active ms after the crash disappears
+  onShot() { /* Optional sound */ },
+});
+```
+
+`crashing` and `recovering` report the crash/recovery state.
+`hitCount` and `cowboyShotCount` report totals for the current scene and reset
+when it stops. The library remains silent. `/test/santa-cowboy.html` checks the
+optional opponent and hit reactions.

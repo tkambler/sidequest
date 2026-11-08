@@ -34,6 +34,7 @@ export function trackPerches(surfaces) {
     const x = rect.left - surface.geometry.left, y = rect.top - surface.geometry.top;
     if (x || y) {
       surface.left += x; surface.right += x; surface.y += y; surface.originLeft += x;
+      if (surface.bottom !== undefined) surface.bottom += y;
       movement.set(surface, { x, y });
       surface.geometry = { left: rect.left, top: rect.top };
     }
@@ -120,7 +121,8 @@ function* discoverPerches(config) {
     const metrics = ctx.measureText(text.trim());
     const ascent = metrics.fontBoundingBoxAscent ?? parseFloat(style.fontSize);
     const offset = Math.max(0, ascent - metrics.actualBoundingBoxAscent);
-    const lines = [...range.getClientRects()].map((rect, index) => ({ node, index, rect, y: rect.top + offset }));
+    const lines = [...range.getClientRects()].map((rect, index) => ({ node, index, rect, y: rect.top + offset,
+      bottom: Math.min(rect.bottom, rect.top + offset + metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) }));
     textGeometry.set(node, lines);
     return lines;
   }
@@ -153,7 +155,7 @@ function* discoverPerches(config) {
         visible(element) && painted(element, style)) blockers.push({ element, rect: element.getBoundingClientRect() });
   }
   let samples = 0;
-  function* add(element, anchor, part, rect, y, insetLeft = 0, insetRight = 0) {
+  function* add(element, anchor, part, rect, y, insetLeft = 0, insetRight = 0, bottom = rect.bottom) {
     const left = Math.max(0, rect.left + insetLeft), right = Math.min(innerWidth, rect.right - insetRight);
     if (right - left < config.size + 8 || y < config.size || y >= innerHeight) return;
     let start = null;
@@ -163,7 +165,7 @@ function* discoverPerches(config) {
           const bounds = element.getBoundingClientRect();
           geometry.set(element, { left: bounds.left, top: bounds.top });
         }
-        result.push({ element, anchor, part, left: start, right: end, y, originLeft: rect.left, geometry: geometry.get(element) });
+        result.push({ element, anchor, part, left: start, right: end, y, bottom, originLeft: rect.left, geometry: geometry.get(element) });
       }
       start = null;
     };
@@ -201,7 +203,10 @@ function* discoverPerches(config) {
     if (painted(element, style)) {
       // Skip the rounded corners: the top edge only starts after each radius.
       const radius = value => value.endsWith('%') ? rect.width * parseFloat(value) / 100 : parseFloat(value) || 0;
-      yield* add(element, element, 'box', rect, rect.top, radius(style.borderTopLeftRadius), radius(style.borderTopRightRadius));
+      // A border supplies a ledge, but its transparent interior supplies no paint.
+      const bottom = contrasts(rgba(style.backgroundColor), backdrop(element)) ? rect.bottom :
+        rect.top + parseFloat(style.borderTopWidth);
+      yield* add(element, element, 'box', rect, rect.top, radius(style.borderTopLeftRadius), radius(style.borderTopRightRadius), bottom);
       continue;
     }
     // Transparent containers can contribute actual text, never their empty padding.
@@ -219,7 +224,7 @@ function* discoverPerches(config) {
     // Only the uppermost line is an exposed roof; lower lines have text overhead.
     const top = Math.min(...lines.map(line => line.rect.top));
     for (const line of lines) {
-      if (Math.abs(line.rect.top - top) < 2) yield* add(line.node.parentElement, line.node, line.index, line.rect, line.y);
+      if (Math.abs(line.rect.top - top) < 2) yield* add(line.node.parentElement, line.node, line.index, line.rect, line.y, 0, 0, line.bottom);
     }
   }
   return result;

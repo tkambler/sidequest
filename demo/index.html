@@ -7,42 +7,44 @@
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <header class="masthead"><a class="wordmark" href="#" aria-label="Sidequest home"><span class="brand-bird" aria-hidden="true"></span>sidequest<span class="js-mark">.js</span></a><a class="text-link" href="#use-it">Put them on your page <span aria-hidden="true">↗</span></a></header>
+  <header class="masthead"><a class="wordmark" href="#" aria-label="Sidequest home"><span class="brand-bird" aria-hidden="true"></span>sidequest<span class="js-mark">.js</span></a></header>
   <main>
     <section class="intro" aria-labelledby="headline">
       <div class="intro-copy"><p class="eyebrow"><span class="little-dot"></span> Tiny games. A very unserious JavaScript library</p>
       <h1 id="headline">Your website.<br>A little more <em id="headline-verb">gobble.</em></h1>
       <p class="lede">Tiny turkeys. Big holiday energy. Let a few pixel-art visitors wander, flap, and hop around your webpage.</p>
-      <div class="game-picker"><label for="game-mode">Choose your game</label><select id="game-mode"><option value="turkeys">Cowboy &amp; turkeys</option><option value="orc">Orc archer</option></select></div>
+      <div class="game-picker"><label for="game-mode">Choose your game</label><select id="game-mode"><option value="turkeys">Cowboy &amp; turkeys</option><option value="orc">Orc archer</option><option value="santa">Santa &amp; presents</option></select></div>
       <p class="rider-instructions"><strong>Meet your tiny trail buddy.</strong> Click the cowboy to take control. A / D move, the mouse aims, and holding then releasing a click fires a charged shot. Click him again or press Escape to return to patrol. Page clicks are blocked in control mode.</p>
       <div class="actions"><button class="primary" id="toggle" aria-pressed="false"><span class="button-icon" aria-hidden="true">✦</span> Release the visitors <span aria-hidden="true">↗</span></button><span class="side-note">No feeding required.</span></div>
       <p class="live-note" id="status" role="status">The flock is waiting in the wings.</p>
       </div>
-      <div class="specimen" role="img" aria-label="Pixel-art turkey and cowboy, shown enlarged">
-        <div class="specimen-top"><span>MEET YOUR NEW SITE VISITOR</span><span>Fig. 01</span></div>
-        <div class="specimen-bird duo" aria-hidden="true"></div>
-        <div class="specimen-caption"><span class="annotation">a gobbler &amp;<br>a little gunslinger</span><span class="size-label">30 px turkeys<br><span>one 48 px cowboy</span></span></div>
+      <div class="character-gallery" role="group" aria-label="Meet all three games">
+        <figure class="character-card character-card--turkeys">
+          <figcaption class="character-name">Turkey &amp; cowboy</figcaption>
+          <div class="character-art character-art--duo" aria-hidden="true"><span data-character="turkey"></span><span data-character="cowboy"></span></div>
+          <p class="character-caption">A gobbler &amp; a little gunslinger.</p>
+          <p class="character-note">Wander, flap &amp; take the reins</p>
+        </figure>
+        <figure class="character-card character-card--santa">
+          <figcaption class="character-name">Santa &amp; kids</figcaption>
+          <div class="character-art character-art--family" aria-hidden="true"><span data-character="boy"></span><span data-character="santa"></span><span data-character="girl"></span></div>
+          <p class="character-caption">A little Christmas magic.</p>
+          <p class="character-note">Special deliveries &amp; very good wishes</p>
+        </figure>
+        <figure class="character-card character-card--orc">
+          <figcaption class="character-name">Orc archer</figcaption>
+          <div class="character-art" data-character="orc" aria-hidden="true"></div>
+          <p class="character-caption">One small orc, a big fire hazard.</p>
+          <p class="character-note">Flaming arrows &amp; bad aim</p>
+        </figure>
       </div>
-    </section>
-    <section class="playground" aria-labelledby="playground-title">
-      <div class="section-heading"><div><p class="eyebrow">Their page now, technically</p><h2 id="playground-title">A place to stretch their legs.</h2></div><div class="flock-meter"><span class="little-dot"></span><span id="count">0</span> <span id="count-type">/ 6 visitors</span></div></div>
-      <div class="habitat">
-        <div class="habitat-label">LIVE HABITAT <span aria-hidden="true">↘</span></div>
-        <div class="perch perch-a" data-turkey-perch><span class="perch-symbol">Aa</span><span class="perch-copy">Headlines make lovely sidewalks.</span></div>
-        <div class="perch perch-b" data-turkey-perch><span class="perch-symbol">⌁</span><span class="perch-copy">A quick flap. A little hop.</span></div>
-        <div class="perch perch-c" data-turkey-perch><span class="perch-symbol">↗</span><span class="perch-copy">Absolutely nowhere to be.</span></div>
-        <span class="habitat-note">Psst. They'll explore the rest of this page, too.</span>
-        <button id="add" class="add-button" disabled>+ Invite one more</button>
-      </div>
-      <div class="traits"><p><span aria-hidden="true">↟</span> Walks on your real page elements</p><p><span aria-hidden="true">⌁</span> One cowboy. You’re in control.</p><p><span aria-hidden="true">♡</span> Click the cowboy to play</p></div>
     </section>
     <section id="use-it" class="installation" aria-labelledby="install-title"><div><p class="eyebrow">A tiny addition</p><h2 id="install-title">Add a sidequest.</h2><p>No dependencies. No images to load.<br>One script and a little Thanksgiving spirit.</p><a class="text-link" href="../README.md">Read the full field guide <span aria-hidden="true">↗</span></a></div>
       <div class="code-panel"><div class="code-header"><span>YOUR PAGE · HTML</span><button id="copy">Copy snippet</button></div><pre tabindex="0" role="region" aria-label="Installation code"><code><span class="code-muted">&lt;!-- Add before &lt;/body&gt; --&gt;</span>
 &lt;script src="./sidequest.js"&gt;&lt;/script&gt;
 &lt;script&gt;
-  <span class="code-gold">const</span> flock = Sidequest.<span id="snippet-factory">createTurkeys</span>();
-  flock.<span class="code-gold">start</span>();
-&lt;/script&gt;</code></pre><div class="code-foot">Serve <a href="../dist/sidequest.js" download>turkeys.js ↓</a> alongside your page. You're ready.</div></div>
+  <span class="code-gold">const</span> game = Sidequest.<span class="code-gold">start</span>({ mode: '<span id="snippet-mode">turkeys</span>' });
+&lt;/script&gt;</code></pre><div class="code-foot">Serve <a href="../dist/sidequest.js" download>sidequest.js ↓</a> alongside your page. You're ready.</div></div>
     </section>
   </main>
   <footer><span>Made for the joy of small, unnecessary things.</span><span>Happy Thanksgiving. <span aria-hidden="true">✳</span></span></footer>

@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Santa browser checks</title><style>body{margin:0;height:1800px;background:#faf7ef;font:14px monospace}#ledge{position:absolute;left:50px;top:300px;width:700px;height:50px;background:#345b4a}#results{position:absolute;top:400px;left:30px}</style></head><body><button id="page-button">Normal page button</button><div id="ledge">A Christmas ledge</div><pre id="results">Running…</pre>
+<script type="module">
+import { createSantaGame, santaSVG } from '../dist/sidequest.mjs';
+const results = [], originalRandom = Math.random;
+const originalRAF = window.requestAnimationFrame, originalCancel = window.cancelAnimationFrame;
+let callbacks = new Map(), id = 0, clock = 100, game;
+window.requestAnimationFrame = fn => { callbacks.set(++id, fn); return id; };
+window.cancelAnimationFrame = key => callbacks.delete(key);
+const advance = async ms => { for (let t=0;t<ms;t+=1000/60) { clock+=1000/60; const batch=[...callbacks.values()]; callbacks.clear(); batch.forEach(fn=>fn(clock)); if (t%1000<17) await Promise.resolve(); } };
+const assert = (condition,name) => { results.push({name,pass:!!condition}); if(!condition) throw Error(name); };
+const root = () => document.querySelector('sidequest-santa').shadowRoot;
+try {
+  const image=new Image();
+  await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(santaSVG());});
+  const artCanvas=document.createElement('canvas');artCanvas.width=178;artCanvas.height=91;
+  const artContext=artCanvas.getContext('2d');artContext.drawImage(image,0,0);
+  const alpha=(x,y)=>artContext.getImageData(x,y,1,1).data[3];
+  assert([[124,60],[161,60],[53,46],[32,59],[43,59],[14,59]].every(([x,y])=>alpha(x,y)===255),'reindeer chests, Santa cuffs, hands and sleigh have opaque interior fills');
+  assert(alpha(80,20)===0,'space outside the characters stays transparent');
+  Math.random = () => .9;
+  game = createSantaGame({maxChildren:2,spawnInterval:[100000,100000],visitInterval:[500,500],lifetime:[100000,100000],giftLifetime:100000,perchSelector:'#ledge',respectReducedMotion:false});
+  assert(!document.querySelector('sidequest-santa'),'opt-in: no scene before start');
+  game.start(); await advance(100);
+  assert(game.count===1,'first child arrives after discovery');
+  assert(game.spawn('girl') && !game.spawn(),'boy and girl spawn with a bounded visitor cap');
+  assert(root().querySelector('[data-variant="boy"]') && root().querySelector('[data-variant="girl"]'),'both child variants appear');
+  let clicks=0; document.querySelector('#page-button').onclick=()=>clicks++;
+  document.querySelector('#page-button').click();
+  assert(clicks===1 && getComputedStyle(document.querySelector('sidequest-santa')).pointerEvents==='none','Christmas scene leaves page interactions working');
+  assert(!root().querySelector('.cowboy') && !root().querySelector('.cowboy-shot') && game.cowboyShotCount===0,'Christmas game has no cowboy or gunfire by default');
+  const wave=root().querySelector('.arm-wave'), beforeWave=wave.style.transform;
+  const leftArm=root().querySelector('.arm-left'), beforeLeft=leftArm.style.transform;
+  await advance(200); assert(wave.style.transform!==beforeWave && leftArm.style.transform!==beforeLeft,'waiting children wave both hands');
+  game.pause(); const frozen=wave.style.transform; await advance(3000);
+  assert(wave.style.transform===frozen && !game.spawn(),'pause freezes the scene and blocks arrivals');
+  game.resume(); await advance(600);
+  const moving=root().querySelector('.sleigh');
+  const parts=()=>[...moving.querySelectorAll('.santa-hands,.santa-eyes,.santa-eyelids,.deer-leg,.santa-sled,.reindeer,.flex-reins')].map(n=>JSON.stringify([n.getAttribute('transform'),n.getAttribute('d'),n.getAttribute('display')]));
+  const firstEyes=moving.querySelector('.santa-eyes').getAttribute('transform');
+  const firstParts=parts(), firstHands=moving.querySelector('.santa-hands').getAttribute('transform'); await advance(160); const nextParts=parts();
+  assert(firstParts[0]!==nextParts[0],'sleigh has independent spring motion');
+  assert(moving.querySelector('.santa-eyes').getAttribute('transform')!==firstEyes,'Santa makes subtle eye glances');
+  assert(moving.querySelector('.santa-hands').getAttribute('transform')!==firstHands,'Santa keeps both hands on the reins with a subtle vertical movement');
+  assert(moving.querySelector('.leg-front').getAttribute('transform')!==moving.querySelector('.leg-back').getAttribute('transform'),'reindeer legs use opposing strides');
+  assert(moving.querySelector('.santa-sled').getAttribute('transform')!==moving.querySelector('.reindeer').getAttribute('transform'),'reindeer and sleigh move independently');
+  game.pause(); const frozenParts=JSON.stringify(parts()); await advance(1000);
+  assert(JSON.stringify(parts())===frozenParts,'pause freezes Santa, legs, sleigh suspension and reins'); game.resume();
+  let landed=false, departed=false, checkedRest=false, sawBlink=false;
+  for(let t=0;t<50000;t+=100){ await advance(100); const state=root().querySelector('.sleigh')?.dataset.state; sawBlink ||= root().querySelector('.santa-eyelids')?.getAttribute('display')==='inline'; if(state==='landed' && !checkedRest){ await advance(600); const legs=[...root().querySelectorAll('.deer-leg')]; assert(legs.every(leg=>Math.abs(parseFloat(leg.getAttribute('transform').slice(7)))<1),'reindeer legs settle at rest after landing'); checkedRest=true; } landed ||= state==='landed'; departed ||= state==='takeoff' || state==='exit'; if(game.giftCount===2 && !game.delivering) break; }
+  assert(sawBlink,'Santa occasionally blinks during his visits');
+  assert(landed && game.giftCount===2 && game.waitingCount===0,'Santa physically lands and delivers to every waiting child');
+  assert(departed && !game.delivering,'Santa climbs and leaves after his deliveries');
+  assert(root().querySelectorAll('.gift').length===2,'one wrapped present appears next to each child');
+  await advance(2000); assert(root().querySelectorAll('.gift').length===2,'served children do not receive duplicate presents');
+  const child=[...root().querySelectorAll('.child')].find(c=>new DOMMatrix(c.style.transform).m42<400);
+  assert(child,'a child occupies a real page ledge');
+  const childBefore=new DOMMatrix(child.style.transform);
+  document.querySelector('#ledge').style.transform='translate(10px,30px)'; await Promise.resolve(); await advance(100);
+  const childAfter=new DOMMatrix(child.style.transform);
+  assert(Math.abs(childAfter.m41-childBefore.m41-10)<1 && Math.abs(childAfter.m42-childBefore.m42-30)<1,'children and presents follow moving page ledges');
+  const canvas=root().querySelector('canvas');
+  const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+  assert(pixels.some((n,i)=>i%4===3 && n>0),'snowfall and accumulation paint visible pixels');
+  game.stop(); assert(!document.querySelector('sidequest-santa') && game.count===0 && callbacks.size===0,'stop clears children, sleigh, gifts, snow and animation frames');
+  game.start(); await advance(100); assert(game.count===1 && game.giftCount===0,'restart creates a fresh Christmas scene'); game.destroy();
+  let threw=false;try{game.start()}catch{threw=true}assert(threw,'destroy permanently stops the game');
+  game=createSantaGame({maxChildren:1,spawnInterval:[100000,100000],visitInterval:[100,100],respectReducedMotion:false});
+  game.start();await advance(100);
+  for(let i=0;i<300 && game.giftCount===0;i++) await advance(100);
+  assert(game.giftCount===1,'a fresh visitor receives a present');
+  await advance(3100);assert(game.count===1 && game.giftCount===1,'child enjoys the present for a few seconds');
+  await advance(1200);assert(game.count===0 && game.giftCount===0 && !root().querySelector('.gift'),'child and present disappear four seconds after delivery');game.stop();
+  game=createSantaGame({snow:false,respectReducedMotion:false});game.start();await advance(100);
+  assert(!root().querySelector('canvas'),'snow can be disabled'); game.stop();
+} catch(error) { results.push({name:error.message,pass:false,error:error.stack}); }
+finally { game?.stop(); Math.random=originalRandom;window.requestAnimationFrame=originalRAF;window.cancelAnimationFrame=originalCancel; }
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Santa':'FAIL — Santa';
+</script></body></html>

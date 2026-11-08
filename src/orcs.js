@@ -36,11 +36,10 @@ export function createOrcGame(options = {}) {
 
   function scan(perches) {
     targets = perches.map(surface => {
-      const rect = surface.element.getBoundingClientRect();
-      const bottom = surface.part === 'box' ? Math.min(innerHeight, rect.bottom) : Math.min(rect.bottom, surface.y + parseFloat(getComputedStyle(surface.element).fontSize) * .85);
+      const bottom = Math.min(innerHeight, surface.bottom);
       const top = surface.y;
       return { id: surface.anchor, surface, element: surface.element,
-        box: { left: surface.left, right: surface.right, top, bottom: Math.max(top + 2, bottom) },
+        box: { left: surface.left, right: surface.right, top, bottom },
         x: (surface.left + surface.right) / 2, y: top + Math.min(10, Math.max(1, (bottom - top) / 2)), radius: Math.max(16, Math.min(90, Math.max(surface.right - surface.left, bottom - top) / 2)) };
     });
     fires = fires.filter(fire => {
@@ -49,11 +48,17 @@ export function createOrcGame(options = {}) {
     });
     dirty = false; lastScan = elapsed; nextScan = elapsed + 1000;
   }
-  function shoot({ muzzle, dx, dy, speed, power }) {
+  function shoot({ muzzle, dx, dy, speed, power, target, aimPoint }) {
     if (!running || blocked()) return;
     const element = document.createElement('div'); element.className = 'flaming-arrow';
     element.innerHTML = arrowSVG(); element.dataset.outcome = 'flying';
-    const shot = { element, muzzle, vx: dx * speed, vy: dy * speed, gravity: BALL_GRAVITY, born: elapsed, checkedAge: 0 };
+    if (!target && aimPoint) {
+      const hit = document.elementsFromPoint(aimPoint.x, aimPoint.y).find(element => element !== host);
+      target = targets.find(candidate => aimPoint.x >= candidate.box.left && aimPoint.x <= candidate.box.right &&
+        aimPoint.y >= candidate.box.top && aimPoint.y <= candidate.box.bottom &&
+        hit && (hit === candidate.element || candidate.element.contains(hit)));
+    }
+    const shot = { targetElement: target?.element, element, muzzle, vx: dx * speed, vy: dy * speed, gravity: BALL_GRAVITY, born: elapsed, checkedAge: 0 };
     element.style.transform = `translate3d(${muzzle.x - 20}px,${muzzle.y - 6}px,0) rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg)`;
     scenery.append(element); arrows.push(shot);
     if (arrows.length > config.maxArrows) { const old = arrows.shift(); old.element.remove(); }
@@ -77,6 +82,7 @@ export function createOrcGame(options = {}) {
       const from = projectilePoint(arrow, arrow.checkedAge), to = projectilePoint(arrow, age);
       let victim = null, first = Infinity;
       for (const target of targets) {
+        if (target.element !== arrow.targetElement) continue;
         const time = segmentHitTime(from, to, target.box);
         if (time === null || time >= first) continue;
         const point = { x: from.x + (to.x - from.x) * time, y: from.y + (to.y - from.y) * time };
@@ -139,7 +145,7 @@ export function createOrcGame(options = {}) {
       host = document.createElement('sidequest-orcs'); host.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;overflow:hidden!important;display:block!important;';
       root = host.attachShadow({ mode: 'open' }); root.innerHTML = `<style>${SCENE_STYLES}${ORC_STYLES}</style>`;
       scenery = document.createElement('div'); scenery.setAttribute('aria-hidden', 'true'); root.append(scenery); document.body.append(host);
-      archer = createRanger({ root, size: config.size, speed: config.speed, artwork: orcSVG, kind: 'orc', weapon: 'bow', fire: shoot,
+      archer = createRanger({ root, size: config.size, speed: config.speed, artwork: orcSVG, kind: 'orc', weapon: 'bow', fire: shoot, varyTargets: true,
         targets: () => targets, autoShotInterval: config.autoShotInterval, autoShotAccuracy: config.autoShotAccuracy });
       observer = new MutationObserver(records => {
         if (records.some(record => affectsPerches(record, host, config.excludeSelector))) invalidate();

@@ -1,26 +1,42 @@
-/** Horned orc archer: green skin, iron armor, boots, and a bow instead of an axe. */
+/** Tall, horned orc archer in a coarse pixel grid: iron plate, green skin, and a bow. */
 export function orcSVG() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 42" shape-rendering="crispEdges" aria-hidden="true">
-    <path fill="#92985b" d="M10 1h2v5h3v2h-5zm16 0h2v7h-5V6h3z"/>
-    <path fill="#b2b57b" d="M10 1h1v4h-1zm17 0h1v4h-1z"/>
-    <path fill="#40483d" d="M14 6h10v2h2v7h-2v3H13v-3h-2V8h3z"/>
-    <path fill="#787f68" d="M14 7h9v3h-9z"/>
-    <path fill="#4e8c38" d="M13 11h11v7h-2v3h-8v-2h-2v-5h1z"/>
-    <path fill="#6da248" d="M13 13h3v5h4v2h-6v-2h-2v-3h1z"/>
-    <path fill="#c5932a" d="M14 11h2v2h-2zm6 0h2v2h-2z"/>
-    <path fill="#e5d441" d="M14 14h2v2h-2zm6 0h2v2h-2z"/>
-    <path fill="#a6bd55" d="M16 17h5v2h-5z"/><path fill="#f1df9d" d="M16 17h1v2h-1zm4 0h1v2h-1z"/>
-    <path fill="#557f39" d="M10 20h16v3h2v7h-3v3H10v-3H8v-7h2z"/>
-    <path fill="#737b70" d="M10 20h5v-1h8v1h3v11H10z"/>
-    <path fill="#93978b" d="M12 21h10v8H12z"/>
-    <path fill="#7b8175" d="M15 23h5v1h2v3h-2v1h-5v-2h-2v-2h2z"/>
-    <path fill="#b0b2a4" d="M13 22h1v1h-1zm8 0h1v1h-1zm-9 6h2v1h-2z"/>
-    <path fill="#3c702c" d="M8 23h2v7H8zm18 0h2v6h-2z"/>
-    <path fill="#68a044" d="M7 25h2v6H7zm19-2h2v4h-2z"/>
-    <path fill="#424b3c" d="M7 30h3v3H7zm18-2h3v3h-3z"/>
-    <path fill="#6e5b32" d="M10 31h16v2H10z"/><path fill="#aaa164" d="M17 31h3v2h-3z"/>
-    <g class="orc-leg leg-a"><path fill="#424d59" d="M11 33h6v4h-1v4h1v1h-7v-2h1z"/><path fill="#25302a" d="M10 40h7v2h-7z"/></g>
-    <g class="orc-leg leg-b"><path fill="#515d68" d="M21 33h5v7h2v2h-7z"/><path fill="#303629" d="M21 40h7v2h-7z"/></g>
+    <!-- Upright olive horns and a flat, stepped iron helmet. -->
+    <path fill="#94985f" d="M12 0h2v4h2v1h-4zm12 4h2V0h2v5h-4z"/>
+    <path fill="#b0b17d" d="M12 0h1v3h-1zm14 0h1v3h-1z"/>
+    <path fill="#484a40" d="M15 4h10v4h1v8h-3V9h-8z"/>
+    <path fill="#77796a" d="M15 4h9v2h-2v2h-7z"/>
+    <path fill="#8b8c77" d="M15 4h5v1h-1v1h-2v1h-2z"/>
+    <!-- Narrow face, heavy brow, square yellow eyes, and a broad lower jaw. -->
+    <path fill="#3f813a" d="M14 8h9v3h1v5h-2v2h-7v-2h-1z"/>
+    <path fill="#5b9c44" d="M14 9h4v4h-1v3h5v1h-7v-2h-1z"/>
+    <path fill="#738743" d="M15 8h2v2h-2zm5 0h2v2h-2z"/>
+    <path fill="#e0cc32" d="M14 11h2v2h-2zm6 0h2v2h-2z"/>
+    <path fill="#68943f" d="M17 12h2v3h-2z"/>
+    <path fill="#315d30" d="M17 16h5v1h-5z"/>
+    <!-- Long exposed arms frame a plain, broad breastplate. -->
+    <path fill="#3d803b" d="M12 17h2v3h-2v7h-1v2H9v-2h1v-7h2zm14 0h2v3h2v9h-2v-8h-2z"/>
+    <path fill="#67ae50" d="M11 18h2v3h-2zm-1 4h1v5h-1zm18-2h1v7h-1z"/>
+    <path fill="#8c8d82" d="M14 15h3v2h5v-2h3v2h2v12H13V18h1z"/>
+    <path fill="#a1a296" d="M14 18h10v10H14z"/>
+    <path fill="#777b71" d="M14 17h3v2h-3zm8 0h3v2h-3zm-8 3h4v1h-4zm8 0h3v1h-3z"/>
+    <path fill="#b0b0a1" d="M19 18h3v1h-3zm-5 4h1v5h-1z"/>
+    <path fill="#92958a" d="M17 23h7v5h-7z"/>
+    <path fill="#73786f" d="M25 19h2v10h-2z"/>
+    <path fill="#484c3d" d="M9 28h3v2H9zm19 0h2v2h-2z"/>
+    <path fill="#6b5d33" d="M13 29h14v2H13z"/>
+    <path fill="#969064" d="M19 29h2v1h-2z"/>
+    <!-- Slim, separated legs with small olive boot soles. -->
+    <g class="orc-leg leg-a">
+      <path fill="#404d59" d="M14 31h6v3h-4v7h-2z"/>
+      <path fill="#56636d" d="M14 31h6v1h-4v3h-2z"/>
+      <path fill="#535536" d="M14 40h2v2h-2z"/>
+    </g>
+    <g class="orc-leg leg-b">
+      <path fill="#47545f" d="M21 31h6v11h-2v-8h-4z"/>
+      <path fill="#63707a" d="M22 32h4v1h-4z"/>
+      <path fill="#737044" d="M25 40h2v2h-2z"/>
+    </g>
     <g class="bow">
       <path fill="#715031" d="M29 12h3v3h2v4h1v8h-1v4h-2v3h-3v-2h2v-4h1V18h-1v-3h-2z"/>
       <path fill="#b28b4b" d="M30 13h1v3h2v4h1v6h-1v4h-2v3h-1v-2h1v-4h1v-8h-1v-3h-1z"/>

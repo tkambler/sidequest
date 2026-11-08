@@ -1,0 +1,56 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Santa crash checks</title><style>body{margin:0;height:1800px;background:#faf7ef;font:14px monospace}#ledge{position:absolute;left:50px;top:400px;width:700px;height:40px;background:#345b4a}#results{position:absolute;top:500px;left:20px;white-space:pre-wrap}</style></head><body><button id="page-button">Page button</button><div id="ledge">A landing ledge</div><pre id="results">Running…</pre>
+<script type="module">
+import {createSantaGame} from '../dist/sidequest.mjs';
+const results=[],originalRandom=Math.random,originalRAF=requestAnimationFrame,originalCancel=cancelAnimationFrame;
+let callbacks=new Map(),id=0,clock=100,game;
+window.requestAnimationFrame=fn=>{callbacks.set(++id,fn);return id};window.cancelAnimationFrame=id=>callbacks.delete(id);
+const advance=async ms=>{for(let t=0;t<ms;t+=1000/60){clock+=1000/60;const batch=[...callbacks.values()];callbacks.clear();batch.forEach(fn=>fn(clock));if(t%1000<17)await Promise.resolve()}};
+const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
+const root=()=>document.querySelector('sidequest-santa').shadowRoot;
+const santa=()=>root().querySelector('.sleigh');
+const pointer=type=>window.dispatchEvent(new PointerEvent(type,{pointerId:1,button:0,clientX:100,clientY:150,bubbles:true,cancelable:true}));
+async function setup(options={}){game=createSantaGame({cowboy:true,maxChildren:1,spawnInterval:[100000,100000],visitInterval:[100,100],lifetime:[100000,100000],giftLifetime:100000,cowboyShotInterval:[20000,20000],cowboyAccuracy:1,perchSelector:'#ledge',respectReducedMotion:false,...options});game.start();await advance(300);santa().click();await advance(200)}
+async function waitForHit(){for(let i=0;i<900 && !game.crashing;i++)await advance(50)}
+async function waitForRecovery(){for(let i=0;i<200 && !game.recovering;i++)await advance(50)}
+try{
+  Math.random=()=>.9;await setup();const original=santa(),child=root().querySelector('.child');
+  assert(game.controlled && child,'start with a pilot and a child waiting for a gift');
+  pointer('pointerdown');await advance(1000);assert(original.dataset.charging==='true','pilot is holding a charged present before the hit');
+  await waitForHit();
+  assert(game.crashing && game.hitCount===1,'an actual cowboy bullet begins one crash');
+  assert(!game.controlled && original.disabled && original.dataset.charging==='false','hit cancels piloting, thrust and held charge');
+  assert(root().querySelector('.game-shield').hidden && root().querySelector('.trajectory-preview').hasAttribute('hidden'),'crash removes the input shield and aiming preview');
+  pointer('pointerup');assert(game.airborneGiftCount===0,'releasing after a hit cannot throw the canceled gift');
+  let clicks=0;document.querySelector('#page-button').onclick=()=>clicks++;document.querySelector('#page-button').click();
+  assert(clicks===1,'page clicks work immediately during the crash');original.click();assert(!game.controlled,'crashing Santa cannot be piloted');
+  const fallY=new DOMMatrix(original.style.transform).m42;await advance(150);
+  assert(new DOMMatrix(original.style.transform).m42>fallY,'Santa visibly falls under gravity');
+  const frozen=original.style.transform;game.pause();await advance(3000);
+  assert(game.crashing && original.style.transform===frozen,'pause freezes the falling team');game.resume();
+  let passedLedge=false;
+  for(let i=0;i<200 && original.dataset.state!=='crashed';i++){await advance(16);passedLedge ||= original.getBoundingClientRect().bottom>440 && original.dataset.state==='crashing'}
+  assert(passedLedge && original.dataset.state==='crashed','the crash passes page ledges and reaches the viewport floor');
+  assert(Math.abs(original.getBoundingClientRect().bottom-innerHeight)<2,'the tilted team lands with its lowest corner at the floor');
+  assert(root().querySelector('.santa-crash-dust'),'ground impact produces a dust puff');
+  assert(game.hitCount===1 && child.isConnected && child.dataset.gift==='false','the downed team counts once and waiting children remain');
+  await waitForRecovery();assert(!original.isConnected && !santa() && game.recovering && !game.crashing,'Santa disappears after ground impact');
+  game.pause();await advance(6000);assert(!santa() && game.recovering,'pause also freezes the return countdown');game.resume();
+  await advance(3000);assert(!santa() && game.recovering,'Santa stays absent for the first three seconds');
+  await advance(700);const returned=santa();
+  assert(returned && returned!==original && !game.recovering && !game.controlled,'a fresh Santa returns after 3.5 active seconds in automatic mode');
+  assert(!returned.disabled && root().querySelectorAll('.sleigh').length===1,'returned Santa is interactive and unique');
+  for(let i=0;i<600 && !game.deliveredCount;i++)await advance(50);
+  assert(game.deliveredCount===1 && child.dataset.gift==='true','Santa resumes delivering to the same waiting child after returning');
+  santa().click();assert(game.controlled,'the player can pilot Santa again after recovery');game.stop();
+  assert(!game.crashing && !game.recovering && game.hitCount===0 && callbacks.size===0,'stop resets crash state, counters and frame callbacks');
+  await advance(10000);assert(!document.querySelector('sidequest-santa'),'a stopped scene cannot respawn Santa later');
+  await setup({lifetime:[500,500]});await advance(800);assert(game.count===0,'a second scene has no children waiting');
+  await waitForHit();assert(game.crashing,'a pilot can still crash when no children are present');await waitForRecovery();
+  await advance(3700);assert(santa() && !game.controlled && game.count===0,'Santa returns on schedule even with no waiting children');game.stop();
+  await setup({cowboyShotInterval:[300,300]});await waitForHit();assert(game.crashing,'another live crash starts');
+  game.stop();await advance(10000);assert(!document.querySelector('sidequest-santa') && !game.recovering && callbacks.size===0,'stop during a fall cancels every later return');
+  game.start();await advance(300);assert(root().querySelectorAll('.sleigh').length===1 && !game.crashing && !game.controlled,'restart creates a fresh automatic Santa');game.destroy();
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{game?.stop();Math.random=originalRandom;window.requestAnimationFrame=originalRAF;window.cancelAnimationFrame=originalCancel}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Santa crash':'FAIL — Santa crash';
+</script></body></html>

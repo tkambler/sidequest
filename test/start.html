@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Start API checks</title><body><pre id="results">Running…</pre>
+<script src="../dist/sidequest.js"></script>
+<script type="module">
+import { start } from '../dist/sidequest.mjs';
+const results=[];
+const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
+let game;
+try {
+  for (const [build,launch] of [['module',start],['classic',Sidequest.start]]) {
+    for (const [mode,tag,options] of [['turkeys','sidequest-turkeys',{maxTurkeys:2}],['orc','sidequest-orcs',{maxFires:2}],['santa','sidequest-santa',{maxChildren:2,snow:false}]]) {
+      game=launch({mode,respectReducedMotion:false,...options});
+      assert(game.running&&document.querySelector(tag),`${build}: ${mode} starts immediately`);
+      assert(typeof game.pause==='function'&&typeof game.destroy==='function',`${build}: ${mode} returns its controller`);
+      if(mode==='orc')assert(game.fireCount===0&&game.arrowCount===0,`${build}: orc controller exposes arrow and fire counts`);
+      else assert(typeof game.spawn==='function'&&game.count===0,`${build}: ${mode} exposes spawn and count`);
+      game.pause();assert(game.paused,`${build}: ${mode} can pause`);
+      game.stop();assert(!game.running&&!document.querySelector(tag),`${build}: ${mode} stops and removes its scene`);
+      game.start();assert(game.running,`${build}: ${mode} can restart`);
+      game.destroy();assert(!document.querySelector(tag),`${build}: ${mode} destroys its scene`);
+    }
+  }
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{game?.destroy()}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Start API':'FAIL — Start API';
+</script></body></html>

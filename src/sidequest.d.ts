@@ -55,6 +55,7 @@ export interface TurkeyFlock {
   readonly paused: boolean;
   readonly controlled: boolean;
 }
+/** @deprecated Use start({ mode: 'turkeys', ...options }) to launch immediately. */
 export function createTurkeys(options?: TurkeyOptions): TurkeyFlock;
 export function turkeySVG(): string;
 export function cowboySVG(): string;
@@ -88,5 +89,87 @@ export interface OrcGame {
   readonly fireCount: number;
   readonly arrowCount: number;
 }
+/** @deprecated Use start({ mode: 'orc', ...options }) to launch immediately. */
 export function createOrcGame(options?: OrcOptions): OrcGame;
 export function orcSVG(): string;
+
+export interface SantaOptions {
+  /** Include the autonomous cowboy opponent. Default false. */
+  cowboy?: boolean;
+  /** Cowboy sprite width, CSS pixels. Default 48. */
+  cowboySize?: number;
+  /** Active milliseconds between shot attempts; false disables shooting and pursuit. Default [3500, 6500]. */
+  cowboyShotInterval?: [number, number] | false;
+  /** Chance of accurate aim; moving Santa can still dodge. Default .65. */
+  cowboyAccuracy?: number;
+  /** Called when the cowboy fires. The library itself is silent. */
+  onShot?: () => void;
+  /** Allow click-to-control flying and gift tossing. Default true. */
+  interactive?: boolean;
+  /** Horizontal flight speed under player control, CSS px/s. Default 320. */
+  flightSpeed?: number;
+  /** Maximum concurrent children, including those with gifts. Default 6. */
+  maxChildren?: number;
+  /** Child height in CSS pixels. Default 28. */
+  size?: number;
+  /** Sleigh and reindeer team width in CSS pixels. Default 122.67. */
+  sleighSize?: number;
+  /** Active milliseconds between children. Default [5000, 10000]. */
+  spawnInterval?: [number, number];
+  /** Active milliseconds before first visit and between completed trips. Default [8000, 15000]. */
+  visitInterval?: [number, number];
+  /** Waiting child lifetime. Default [60000, 100000]. */
+  lifetime?: [number, number];
+  /** Active milliseconds before a child and gift fade away after delivery. Default 4000. */
+  giftLifetime?: number;
+  /** Active milliseconds after a crash disappears before Santa returns. Default 3500. */
+  respawnDelay?: number;
+  /** Pixel snowfall and tiny accumulating snow piles. Default true. */
+  snow?: boolean;
+  perchSelector?: string;
+  excludeSelector?: string;
+  respectReducedMotion?: boolean;
+}
+export interface SantaGame {
+  start(): SantaGame;
+  /** Invite a boy or girl; alternates by default. False if full or no space. */
+  spawn(variant?: 'boy' | 'girl'): boolean;
+  pause(): SantaGame;
+  resume(): SantaGame;
+  stop(): SantaGame;
+  destroy(): void;
+  readonly running: boolean;
+  readonly paused: boolean;
+  readonly count: number;
+  readonly waitingCount: number;
+  readonly giftCount: number;
+  readonly delivering: boolean;
+  readonly controlled: boolean;
+  /** Total deliveries in this scene, including children who have left. */
+  readonly deliveredCount: number;
+  /** Gifts in flight or briefly resting after a miss. */
+  readonly airborneGiftCount: number;
+  /** Whether Santa is falling or briefly resting at the crash site. */
+  readonly crashing: boolean;
+  /** Waiting for Santa to return after a crash. */
+  readonly recovering: boolean;
+  /** Crashes since start; each downed sleigh counts once. */
+  readonly hitCount: number;
+  /** Total cowboy shots in this scene. */
+  readonly cowboyShotCount: number;
+}
+/** @deprecated Use start({ mode: 'santa', ...options }) to launch immediately. */
+export function createSantaGame(options?: SantaOptions): SantaGame;
+export function santaSVG(): string;
+export function childSVG(variant?: 'boy' | 'girl'): string;
+export function giftSVG(): string;
+
+export type StartOptions =
+  | (TurkeyOptions & { mode: 'turkeys' })
+  | (OrcOptions & { mode: 'orc' })
+  | (SantaOptions & { mode: 'santa' });
+/** Launch immediately, after document.body exists. Returns a controller for this mode. */
+export function start(options: TurkeyOptions & { mode: 'turkeys' }): TurkeyFlock;
+export function start(options: OrcOptions & { mode: 'orc' }): OrcGame;
+export function start(options: SantaOptions & { mode: 'santa' }): SantaGame;
+export function start(options: StartOptions): TurkeyFlock | OrcGame | SantaGame;

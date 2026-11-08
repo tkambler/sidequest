@@ -1,0 +1,58 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Santa cowboy checks</title><style>body{margin:0;height:1800px;background:#faf7ef;font:14px monospace}#ledge{position:absolute;left:50px;top:400px;width:700px;height:40px;background:#345b4a}#results{position:absolute;top:500px;left:20px;white-space:pre-wrap}</style></head><body><button id="page-button">Page button</button><div id="ledge">A landing ledge</div><pre id="results">Running…</pre>
+<script type="module">
+import {createSantaGame} from '../dist/sidequest.mjs';
+const results=[], originalRandom=Math.random, originalRAF=requestAnimationFrame, originalCancel=cancelAnimationFrame;
+let callbacks=new Map(),id=0,clock=100,game,shots=0;
+window.requestAnimationFrame=fn=>{callbacks.set(++id,fn);return id};window.cancelAnimationFrame=id=>callbacks.delete(id);
+const advance=async ms=>{for(let t=0;t<ms;t+=1000/60){clock+=1000/60;const batch=[...callbacks.values()];callbacks.clear();batch.forEach(fn=>fn(clock));if(t%1000<17)await Promise.resolve()}};
+const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
+const root=()=>document.querySelector('sidequest-santa').shadowRoot;
+const cowboy=()=>root().querySelector('.cowboy');
+const santa=()=>root().querySelector('.sleigh');
+const key=(type,key)=>document.body.dispatchEvent(new KeyboardEvent(type,{key,bubbles:true,cancelable:true}));
+async function setup(options={}){shots=0;game=createSantaGame({cowboy:true,maxChildren:1,spawnInterval:[100000,100000],visitInterval:[1000,1000],lifetime:[100000,100000],giftLifetime:100000,cowboyShotInterval:[300,300],cowboyAccuracy:1,perchSelector:'#ledge',respectReducedMotion:false,onShot:()=>shots++,...options});game.start();await advance(300)}
+try{
+  Math.random=()=>.9;await setup();
+  assert(cowboy()?.tagName==='DIV' && cowboy().getAttribute('aria-hidden')==='true','Santa mode includes one autonomous decorative cowboy');
+  assert(cowboy().tabIndex<0 && getComputedStyle(cowboy()).pointerEvents==='none','cowboy cannot capture clicks or keyboard focus');
+  assert(root().querySelectorAll('.cowboy').length===1 && !document.querySelector('sidequest-turkeys'),'cowboy belongs to Santa scene with no turkey game mounted');
+  const original=cowboy().style.transform;await advance(300);
+  assert(cowboy().style.transform!==original && game.cowboyShotCount===0,'cowboy patrols and never fires before Santa arrives');
+  cowboy().click();assert(!game.controlled,'clicking the cowboy cannot enter a second control mode');
+  let clicks=0;document.querySelector('#page-button').onclick=()=>clicks++;
+  document.querySelector('#page-button').click();assert(clicks===1,'autonomous opponent leaves page interactions working');
+  for(let i=0;i<100 && !root().querySelector('.cowboy-shot');i++)await advance(100);
+  const shot=root().querySelector('.cowboy-shot');
+  assert(shot && game.cowboyShotCount>0 && shots===game.cowboyShotCount,'cowboy aims at visiting Santa and fires real shots with one callback each');
+  assert(shot.querySelector('.pellet') && shot.querySelector('.smoke'),'shots include a visible ball and muzzle smoke');
+  const frozenCowboy=cowboy().style.transform, frozenShot=shot.querySelector('.pellet').style.transform, frozenCount=game.cowboyShotCount;
+  game.pause();await advance(4000);
+  assert(cowboy().style.transform===frozenCowboy && shot.querySelector('.pellet').style.transform===frozenShot && game.cowboyShotCount===frozenCount,'pause freezes the cowboy, aim timers and travelling bullets');
+  assert(getComputedStyle(cowboy().querySelector('.leg-a')).animationPlayState==='paused','pause freezes the cowboy leg animation');game.resume();
+  for(let i=0;i<700 && !game.hitCount;i++)await advance(100);
+  assert(game.hitCount>0,'an actual travelling bullet can hit Santa');
+  assert(santa()?.dataset.hit==='true' && root().querySelector('.santa-impact'),'hits brighten the team and emit pixel sparks');
+  const hits=game.hitCount, fallen=santa(), deliveries=game.deliveredCount;
+  assert(game.crashing && fallen.disabled && !game.controlled,'a hit starts a crash and disables pilot control');
+  fallen.click();assert(!game.controlled,'the crashing sleigh cannot be taken over');
+  const frozenFall=fallen.style.transform;game.pause();await advance(2000);assert(fallen.style.transform===frozenFall,'pause freezes the crash');game.resume();
+  for(let i=0;i<100 && !game.recovering;i++)await advance(50);
+  assert(game.recovering && !fallen.isConnected && !santa(),'Santa falls, hits the floor and disappears');
+  assert(game.hitCount===hits && game.deliveredCount===deliveries,'one crash counts once and preserves completed deliveries');
+  await advance(2000);assert(!santa() && game.recovering,'Santa remains gone for a few seconds');
+  await advance(1700);assert(santa() && santa()!==fallen && !game.controlled && !game.crashing,'a fresh automatic Santa returns after recovery');
+  santa().click();assert(game.controlled,'the returning Santa can be piloted again');
+  assert(root().querySelector('.santa-danger').textContent.includes('Dodge the cowboy'),'pilot HUD retains the hit count');
+  key('keydown','Escape');assert(!game.controlled,'Escape returns the recovered Santa to automatic deliveries');
+  game.stop();assert(!document.querySelector('sidequest-santa') && game.hitCount===0 && game.cowboyShotCount===0 && callbacks.size===0,'stop cleans up cowboy, shots, sparks, counters and animation frames');
+  document.querySelector('#page-button').click();assert(clicks===2,'stopping leaves no input blockers');
+  game.start();await advance(300);assert(root().querySelectorAll('.cowboy').length===1 && game.hitCount===0,'restart creates exactly one fresh cowboy');game.destroy();
+  await setup({cowboy:false});await advance(15000);assert(!cowboy() && !root().querySelector('.cowboy-shot') && game.cowboyShotCount===0,'cowboy can be disabled independently');game.stop();
+  await setup({cowboyShotInterval:false});await advance(20000);assert(cowboy() && game.cowboyShotCount===0 && game.hitCount===0,'shooting and pursuit can be disabled while keeping a decorative cowboy');game.stop();
+  await setup({cowboyAccuracy:0});const seen=new Set();
+  for(let i=0;i<400;i++){await advance(100);root().querySelectorAll('.cowboy-shot').forEach(s=>seen.add(s));if([...seen].some(s=>s.dataset.outcome==='miss'))break}
+  assert([...seen].some(s=>s.dataset.outcome==='miss'),'inaccurate cowboy shots can miss the moving sleigh');game.stop();
+}catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{game?.stop();Math.random=originalRandom;window.requestAnimationFrame=originalRAF;window.cancelAnimationFrame=originalCancel}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Santa cowboy':'FAIL — Santa cowboy';
+</script></body></html>

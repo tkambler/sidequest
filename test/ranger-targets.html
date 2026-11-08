@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Target rotation checks</title><body><pre id="results">Running…</pre>
+<script type="module">
+import { createRanger } from '../src/ranger.js';
+import { orcSVG } from '../src/orc-art.js';
+import { autoAimPose } from '../src/ballistics.js';
+const results=[], random=Math.random;
+const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
+let ranger,host;
+try {
+  Math.random=()=>.5;
+  host=document.createElement('div');document.body.append(host);
+  const root=host.attachShadow({mode:'open'}),elements=[{}, {}, {}];
+  let candidates=[300,900,1300].map((x,i)=>({id:i,element:elements[i],x,y:innerHeight-200,radius:30}));
+  // A second exposed span on the same element must share its shot history.
+  candidates.push({...candidates[0],id:3,x:350});
+  candidates.push({id:4,element:{},x:500,y:-10000,radius:30});
+  const shots=[];
+  const make=(varyTargets)=>createRanger({root,size:48,speed:420,artwork:orcSVG,kind:'orc',weapon:'bow',interactive:false,
+    autoShotInterval:[100,100],autoShotAccuracy:1,varyTargets,targets:()=>candidates,
+    fire(pose){
+      const x=new DOMMatrix(root.querySelector('.orc').style.transform).m41;
+      const target=candidates.find(t=>{
+        const expected=autoAimPose(x,innerHeight,48,t.x<x+24?-1:1,t,pose.power,0);
+        return expected&&Math.abs(expected.angle-pose.angle)<1e-4;
+      });
+      if(!target)throw Error('Shot must aim at a reachable candidate');
+      shots.push(target.element);
+    }});
+  ranger=make(true);
+  for(let time=0;time<=8000;time+=100)ranger.update(0,time);
+  assert(shots.length>=6,'orc repeatedly fires at reachable targets');
+  for(let i=0;i+2<shots.length;i+=3)assert(new Set(shots.slice(i,i+3)).size===3,'rotation visits every element before repeating, including split spans');
+  assert(shots.every((target,i)=>!i||target!==shots[i-1]),'orc avoids consecutive shots at the same element');
+  candidates=candidates.filter(t=>t.element===elements[0]);
+  const count=shots.length;
+  for(let time=8100;time<=11000;time+=100)ranger.update(0,time);
+  assert(shots.length>count&&shots.slice(count).every(t=>t===elements[0]),'a single remaining element can still be targeted');
+  ranger.destroy();shots.length=0;
+  candidates=[300,900,1300].map((x,i)=>({id:i,element:elements[i],x,y:innerHeight-200,radius:30}));
+  ranger=make(false);
+  for(let time=0;time<=4000;time+=100)ranger.update(0,time);
+  assert(shots.length>=3&&new Set(shots).size===1,'default ranger targeting still prefers the nearest target');
+} catch(error){results.push({name:error.message,pass:false,error:error.stack})}
+finally{Math.random=random;ranger?.destroy();host?.remove()}
+window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Target rotation':'FAIL — Target rotation';
+</script></body></html>

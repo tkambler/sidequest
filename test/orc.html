@@ -50,6 +50,20 @@ try{
   assert(game.fireCount===0&&hits===0,'misses do not create flames');game.destroy();
   await setup({autoShotInterval:false});await wait(1000);assert(shots===0&&game.arrowCount===0,'autonomous shooting can be disabled');game.destroy();
   target.style.display='none';await setup();await wait(1100);assert(shots===0&&game.fireCount===0,'orc ignores hidden page elements');game.destroy();target.style.display='';
+  const obstacle=document.createElement('div');obstacle.id='obstacle';
+  obstacle.style.cssText='position:absolute;left:0;top:980px;width:100%;height:4px;background:#333';
+  document.body.append(obstacle);
+  await setup({targetSelector:'#target,#obstacle',fireLifetime:5000});
+  assert(await until(()=>game.fireCount===1),'an aimed arrow reaches its target through an intervening visible line');
+  assert(hits===1,'the intended target ignites instead of the intervening element');
+  game.destroy();obstacle.remove();
+  target.textContent='';target.style.cssText='position:absolute;left:650px;top:900px;width:240px;height:100px;background:transparent;border-top:4px solid #333';
+  await setup({fireLifetime:5000});
+  assert(await until(()=>game.fireCount===1),'arrows can hit a visible border on a transparent element');
+  patch=root().querySelector('.element-fire');
+  const impactY=new DOMMatrix(patch.style.transform).m42+18;
+  assert(impactY>=target.getBoundingClientRect().top&&impactY<=target.getBoundingClientRect().top+4,'fire attaches to the painted border, never its empty interior');
+  game.destroy();
 }catch(error){results.push({name:error.message,pass:false,error:error.stack})}
 finally{Math.random=originalRandom;game?.stop()}
 window.testResults=results;document.querySelector('#results').textContent=results.map(r=>`${r.pass?'PASS':'FAIL'} ${r.name}`).join('\n');document.title=results.every(r=>r.pass)?'PASS — Orc':'FAIL — Orc';

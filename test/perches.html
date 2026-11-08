@@ -23,13 +23,15 @@ try {
   let surfaces=scan();
   assert(surfaces.length===1 && surfaces[0].left>=textRect.left && surfaces[0].right<=textRect.right+.1,'text ledges exclude empty horizontal margins');
   assert(surfaces[0].y>element.getBoundingClientRect().top+50,'text ledges exclude top padding and font leading');
+  assert(surfaces[0].bottom<=textRect.bottom&&surfaces[0].bottom>surfaces[0].y,'text collision bounds end at the ink instead of extending into padding');
   element=setup('text-align:center;width:600px','Little gobbler'); surfaces=scan();
   assert(surfaces.length===1&&surfaces[0].left>150&&surfaces[0].right<500,'centered text does not create a full-width perch');
   element=setup('width:200px;height:auto;line-height:50px','Several little gobblers are wandering around this long sentence.');
   surfaces=scan();assert(surfaces.length===1&&surfaces[0].y<120,'only the exposed upper text line is walkable');
   setup('background:#ddd');assert(scan().length===1,'contrasting filled top edges are ledges');
   setup('background:white');assert(scan().length===0,'background identical to the page is not an edge');
-  setup('border-top:2px solid #333');assert(scan().length===1,'visible top borders are ledges');
+  element=setup('border-top:2px solid #333');surfaces=scan();assert(surfaces.length===1,'visible top borders are ledges');
+  assert(surfaces[0].bottom===element.getBoundingClientRect().top+2,'border collision bounds exclude the transparent interior');
   setup('border-top:2px solid white');assert(scan().length===0,'invisible borders do not create ledges');
   setup('color:white','Invisible text');assert(scan().length===0,'text matching its background is excluded');
   setup('color:transparent','Invisible text');assert(scan().length===0,'transparent text is excluded');

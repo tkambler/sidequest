@@ -29,7 +29,7 @@ test('classic build exposes the same supported public API', async () => {
   const { runInNewContext } = await import('node:vm');
   const context = { window: {} };
   runInNewContext(await readFile(new URL('../dist/sidequest.js', import.meta.url), 'utf8'), context);
-  assert.deepEqual(Object.keys(context.window.Sidequest).sort(),['cowboySVG','createOrcGame','createTurkeys','orcSVG','roastSVG','turkeySVG']);
+  assert.deepEqual(Object.keys(context.window.Sidequest).sort(),['childSVG','cowboySVG','createOrcGame','createSantaGame','createTurkeys','giftSVG','orcSVG','roastSVG','santaSVG','start','turkeySVG']);
   assert.equal(context.window.Sidequest.cowboySVG(), cowboySVG());
 });
 test('spawn only accepts turkeys', () => {

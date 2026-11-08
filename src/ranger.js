@@ -2,11 +2,12 @@ import { stepHorizontalMotion, strideDuration } from './movement.js';
 import { riflePose, chargeVelocity, previewTrajectory, autoAimPose } from './ballistics.js';
 
 
-export function createRanger({ root, size, speed, fire, targets, autoShotInterval, autoShotAccuracy, artwork, kind, weapon, pursue }) {
+export function createRanger({ root, size, speed, fire, targets, autoShotInterval, autoShotAccuracy, artwork, kind, weapon, pursue, interactive = true, varyTargets = false }) {
   const height = size * 42 / 40;
-  const element = document.createElement('button');
+  const element = document.createElement(interactive ? 'button' : 'div');
   element.type = 'button'; element.className = `game-character ${kind}`; element.innerHTML = artwork();
   element.style.width = `${size}px`; element.style.height = `${height}px`;
+  if (!interactive) { element.setAttribute('aria-hidden', 'true'); element.style.pointerEvents = 'none'; element.style.cursor = 'default'; }
   element.setAttribute('aria-pressed', 'false');
   element.setAttribute('aria-label', `Take control of ${kind}. A and D move. Hold mouse to charge, release to fire. Click ${kind} again or press Escape to leave control mode.`);
   const shield = document.createElement('div'); shield.className = `game-shield ${kind}-shield`; shield.hidden = true; shield.setAttribute('aria-hidden', 'true');
@@ -23,12 +24,15 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
   const tip = preview.querySelector('.trajectory-tip');
   root.append(shield, preview, element, meter, hint);
   const abort = new AbortController();
-  const listen = (node, event, handler) => node.addEventListener(event, handler, { capture: true, passive: false, signal: abort.signal });
+  const listen = (node, event, handler) => { if (interactive) node.addEventListener(event, handler, { capture: true, passive: false, signal: abort.signal }); };
   const keys = new Set();
   let x = Math.max(0, (innerWidth - size) * .35), direction = 1, controlled = false, suspended = false;
   let elapsed = 0, chargeStart = null, pointerId = null, exitPress = false, lastShot = -Infinity;
   let autoAim = null, nextAuto = null, recovery = null, movementVelocity = 0;
   let pursuit = null, pursuitId = null;
+  const targetHistory = new Map();
+  let shotSequence = 0;
+  const targetKey = target => target.element ?? target.id;
   let mouse = { x: innerWidth / 2, y: innerHeight / 2 };
   const consume = event => { if (event.cancelable) event.preventDefault(); event.stopImmediatePropagation(); };
   const isRider = event => event.composedPath().includes(element);
@@ -61,7 +65,7 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
     if (chargeStart !== null) {
       const power = Math.min(1, Math.max(0, (elapsed - chargeStart) / 1500));
       const pose = riflePose(x, innerHeight, size, direction, mouse);
-      fire({ ...pose, power, speed: chargeVelocity(power) });
+      fire({ ...pose, power, speed: chargeVelocity(power), aimPoint: { ...mouse } });
       element.dataset.lastPower = power.toFixed(3); element.dataset.lastShotMode = 'player'; lastShot = elapsed;
     }
     cancelCharge(); render();
@@ -94,8 +98,18 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
     if (!autoAim && !recovery && elapsed >= nextAuto) {
       nextAuto = scheduleAuto();
       const power = .65 + Math.random() * .35;
-      const candidates = targets().filter(target => Math.hypot(target.x - (x + size / 2), target.y - (innerHeight - height / 2)) > size)
-        .sort((a, b) => Math.hypot(a.x - x, a.y - innerHeight) - Math.hypot(b.x - x, b.y - innerHeight));
+      const candidates = targets().filter(target => Math.hypot(target.x - (x + size / 2), target.y - (innerHeight - height / 2)) > size);
+      if (varyTargets) {
+        const available = new Set(candidates.map(targetKey));
+        for (const key of targetHistory.keys()) if (!available.has(key)) targetHistory.delete(key);
+        // Shuffle ties, then prefer the element least recently fired at. Multiple
+        // exposed spans of one element share history so large boxes cannot dominate.
+        for (let i = candidates.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+        }
+        candidates.sort((a, b) => (targetHistory.get(targetKey(a)) ?? 0) - (targetHistory.get(targetKey(b)) ?? 0));
+      } else candidates.sort((a, b) => Math.hypot(a.x - x, a.y - innerHeight) - Math.hypot(b.x - x, b.y - innerHeight));
       for (const target of candidates) {
         const facing = target.x < x + size / 2 ? -1 : 1;
         const accurate = Math.random() < autoShotAccuracy;
@@ -112,7 +126,8 @@ export function createRanger({ root, size, speed, fire, targets, autoShotInterva
       if (!pose) { autoAim = null; nextAuto = scheduleAuto(); return; }
       autoAim.pose = pose;
       if (elapsed >= autoAim.fireAt) {
-        fire({ ...pose, power: autoAim.power });
+        fire({ ...pose, power: autoAim.power, target });
+        if (varyTargets) targetHistory.set(targetKey(target), ++shotSequence);
         lastShot = elapsed; element.dataset.lastPower = autoAim.power.toFixed(3); element.dataset.lastShotMode = 'auto';
         recovery = { pose, until: elapsed + 180 }; autoAim = null; nextAuto = scheduleAuto();
       }
