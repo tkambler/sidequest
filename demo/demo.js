@@ -1,4 +1,4 @@
-import { createTurkeys, turkeySVG, cowboySVG, createOrcGame, orcSVG } from '../src/turkeys.js';
+import { createTurkeys, turkeySVG, cowboySVG, createOrcGame, orcSVG } from '../src/sidequest.js';
 const picker = document.querySelector('#game-mode');
 const isOrc = () => picker.value === 'orc';
 document.querySelector('.brand-bird').innerHTML = turkeySVG();
@@ -67,7 +67,7 @@ picker.addEventListener('change', () => {
 add.addEventListener('click', () => { if (!isOrc()) game.spawn(); update(); });
 media.addEventListener('change', update);
 setInterval(update, 500); preview(); update();
-const snippet = () => `<script src="./turkeys.js"></script>\n<script>\n  const flock = TinyTurkeys.${isOrc() ? 'createOrcGame' : 'createTurkeys'}();\n  flock.start();\n</script>`;
+const snippet = () => `<script src="./sidequest.js"></script>\n<script>\n  const flock = Sidequest.${isOrc() ? 'createOrcGame' : 'createTurkeys'}();\n  flock.start();\n</script>`;
 document.querySelector('#copy').addEventListener('click', async event => {
   try { await navigator.clipboard.writeText(snippet()); event.target.textContent = 'Copied!'; }
   catch { event.target.textContent = 'Select code to copy'; }

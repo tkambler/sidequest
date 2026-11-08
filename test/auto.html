@@ -1,11 +1,11 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Autonomous cowboy checks</title><style>body{margin:0;background:#faf7ef;font:14px monospace}#ledge{position:fixed;left:650px;top:calc(100vh - 180px);width:300px;height:40px;background:#ccc}pre{margin:100px 30px}</style></head><body><button id="page-button">Page button</button><div id="ledge"></div><pre id="results">Running…</pre>
 <script type="module">
-import {createTurkeys} from '../dist/turkeys.mjs';
+import {createTurkeys} from '../dist/sidequest.mjs';
 const results=[],random=Math.random,wait=ms=>new Promise(r=>setTimeout(r,ms));
 const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
 const until=async(predicate,timeout=3000)=>{for(let t=0;t<timeout;t+=20){if(predicate())return true;await wait(20)}return false};
 let flock,clicks=0,hitCalls=0,shotCalls=0;document.querySelector('#page-button').onclick=()=>clicks++;
-const root=()=>document.querySelector('tiny-turkeys').shadowRoot,rider=()=>root().querySelector('.cowboy');
+const root=()=>document.querySelector('sidequest-turkeys').shadowRoot,rider=()=>root().querySelector('.cowboy');
 async function setup(options={}){
   hitCalls=0;shotCalls=0;Math.random=()=>.75;
   flock=createTurkeys({onShot:()=>shotCalls++,onTurkeyHit:()=>hitCalls++,maxTurkeys:1,autoShotInterval:[400,400],autoShotAccuracy:1,perchSelector:'#ledge',poopInterval:false,lifetime:[100000,100000],spawnInterval:[100000,100000],respectReducedMotion:false,...options});

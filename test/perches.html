@@ -2,7 +2,7 @@
 <style>body{margin:0;background:white;color:#222;font:20px Arial}#fixture{position:fixed;left:40px;top:80px;width:1000px;height:600px}.candidate{width:400px;height:80px}#results{position:absolute;top:700px;margin:20px;font:14px monospace}</style></head><body><div id="fixture"></div><pre id="results">Running…</pre>
 <script type="module">
 import {visiblePerches} from '../src/perches.js';
-import {createTurkeys as createScene} from '../dist/turkeys.mjs';
+import {createTurkeys as createScene} from '../dist/sidequest.mjs';
 const createTurkeys=(options={})=>createScene({cowboy:false,...options});
 const results = [], fixture = document.querySelector('#fixture');
 const config = {perchSelector:'.candidate',excludeSelector:'[data-turkey-ignore]',size:30};
@@ -60,13 +60,13 @@ try {
   range=document.createRange();range.selectNodeContents(element);textRect=range.getBoundingClientRect();
   flock=createTurkeys({...config,maxTurkeys:8,poopInterval:false,respectReducedMotion:false});flock.start();await wait(100);
   for(let i=0;i<7;i++)flock.spawn();await wait(50);
-  const birds=[...document.querySelector('tiny-turkeys').shadowRoot.querySelectorAll('.bird')];
+  const birds=[...document.querySelector('sidequest-turkeys').shadowRoot.querySelectorAll('.bird')];
   assert(birds.every(b=>{const p=new DOMMatrix(b.style.transform);return Math.abs(p.m42-(innerHeight-30))<1||(p.m41>=textRect.left&&p.m41+30<=textRect.right&&p.m42+30>130)}),'arrivals use text ink or the floor, never container padding');
   flock.destroy();
   element=setup('background:#ddd');Math.random=()=>.6;
   flock=createTurkeys({...config,maxTurkeys:1,poopInterval:[400,400],respectReducedMotion:false});
   flock.start();await wait(450);
-  const host=document.querySelector('tiny-turkeys');
+  const host=document.querySelector('sidequest-turkeys');
   const dropping=host.shadowRoot.querySelector('.dropping');
   const dropX=new DOMMatrix(dropping.style.transform).m41;
   fixture.style.left='80px';await wait(80);

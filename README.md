@@ -1,6 +1,6 @@
-# Tiny Turkeys
+# Sidequest
 
-An opt-in Thanksgiving easter egg for any web page. Tiny pixel-art turkeys explore
+A dependency-free library of opt-in pixel-art games for any web page. Tiny pixel-art turkeys explore
 visible ledges, flap, hop, and occasionally leave little droppings. One cowboy
 patrols the bottom of the viewport. Click him to take control.
 
@@ -50,12 +50,19 @@ Shots are controlled by the player in control mode. Outside control mode, the co
 
 ## Add to any page
 
-Copy `dist/turkeys.js` alongside your page and place this before `</body>`:
+With the package in your project, import either game:
+
+```js
+import { createTurkeys, createOrcGame } from 'sidequest';
+```
+
+
+Copy `dist/sidequest.js` alongside your page and place this before `</body>`:
 
 ```html
-<script src="./turkeys.js"></script>
+<script src="./sidequest.js"></script>
 <script>
-  const flock = TinyTurkeys.createTurkeys();
+  const flock = Sidequest.createTurkeys();
   // Start from your own holiday toggle:
   flock.start();
 </script>
@@ -64,7 +71,7 @@ Copy `dist/turkeys.js` alongside your page and place this before `</body>`:
 Or use an ES module:
 
 ```js
-import { createTurkeys } from './dist/turkeys.mjs';
+import { createTurkeys } from './dist/sidequest.mjs';
 const flock = createTurkeys();
 document.querySelector('#holiday-mode').addEventListener('click', () => {
   if (flock.running) flock.stop();
@@ -171,12 +178,12 @@ The cowboy and turkey game remains available. Switching games removes the old
 scene and starts the selected one if a game was already running.
 
 ```js
-import { createOrcGame } from './dist/turkeys.mjs';
+import { createOrcGame } from './dist/sidequest.mjs';
 const game = createOrcGame();
 game.start();
 ```
 
-For a plain script, use `TinyTurkeys.createOrcGame()` from the same `turkeys.js`
+For a plain script, use `Sidequest.createOrcGame()` from the same `sidequest.js`
 bundle. `orcSVG()` exports the green, horned, armored archer artwork.
 
 One orc patrols the viewport floor, occasionally aiming and firing a flaming

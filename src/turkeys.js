@@ -1,5 +1,3 @@
-import { createOrcGame, orcSVG } from './orcs.js';
-export { createOrcGame, orcSVG };
 import { SCENE_STYLES } from './styles.js';
 import { visiblePerches } from './perches.js';
 import { BALL_GRAVITY, projectilePoint, segmentHitTime } from './ballistics.js';
@@ -166,7 +164,7 @@ export function createTurkeys(options = {}) {
     shots.push({ element, born: elapsed, muzzle, checkedAge: 0, hit: false,
       vx: dx * speed, vy: dy * speed, gravity: BALL_GRAVITY, duration: 3000 });
     if (shots.length > 32) shots.shift().element.remove();
-    try { config.onShot?.(); } catch (error) { console.error('TinyTurkeys onShot failed', error); }
+    try { config.onShot?.(); } catch (error) { console.error('Sidequest onShot failed', error); }
   }
 
   function roast(turkey) {
@@ -207,7 +205,7 @@ export function createTurkeys(options = {}) {
         }
         if (victim) {
           roast(victim); shot.hit = true; shot.element.dataset.outcome = 'hit';
-          try { config.onTurkeyHit?.(); } catch (error) { console.error('TinyTurkeys onTurkeyHit failed', error); }
+          try { config.onTurkeyHit?.(); } catch (error) { console.error('Sidequest onTurkeyHit failed', error); }
         }
       }
       shot.checkedAge = Math.min(age, shot.duration);
@@ -308,7 +306,7 @@ export function createTurkeys(options = {}) {
       document.querySelector(config.perchSelector);
       document.querySelector(config.excludeSelector);
       media = window.matchMedia('(prefers-reduced-motion: reduce)');
-      host = document.createElement('tiny-turkeys');
+      host = document.createElement('sidequest-turkeys');
       host.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;overflow:hidden!important;display:block!important;';
       shadow = host.attachShadow({ mode: 'open' });
       shadow.innerHTML = `<style>${SCENE_STYLES}</style>`;

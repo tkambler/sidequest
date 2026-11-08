@@ -10,4 +10,4 @@ createServer(async (req, res) => {
     const data = await readFile(path);
     res.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream', 'Cache-Control': 'no-store' }).end(data);
   } catch { res.writeHead(404).end('Not found'); }
-}).listen(4173, '0.0.0.0', () => console.log('Turkey demo: http://localhost:4173/demo/'));
+}).listen(4173, '0.0.0.0', () => console.log('Sidequest demo: http://localhost:4173/demo/'));

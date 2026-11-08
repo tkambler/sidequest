@@ -127,7 +127,7 @@ export function createOrcGame(options = {}) {
       if (!document.body) throw new Error('Call start() after document.body exists');
       document.querySelector(config.targetSelector); document.querySelector(config.excludeSelector);
       media = matchMedia('(prefers-reduced-motion: reduce)');
-      host = document.createElement('tiny-orcs'); host.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;overflow:hidden!important;display:block!important;';
+      host = document.createElement('sidequest-orcs'); host.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;overflow:hidden!important;display:block!important;';
       root = host.attachShadow({ mode: 'open' }); root.innerHTML = `<style>${SCENE_STYLES}${ORC_STYLES}</style>`;
       scenery = document.createElement('div'); scenery.setAttribute('aria-hidden', 'true'); root.append(scenery); document.body.append(host);
       archer = createRanger({ root, size: config.size, speed: config.speed, artwork: orcSVG, kind: 'orc', weapon: 'bow', fire: shoot,

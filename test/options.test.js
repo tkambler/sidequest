@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTurkeys, turkeySVG, cowboySVG, roastSVG } from '../src/turkeys.js';
+import { createTurkeys, turkeySVG, cowboySVG, roastSVG } from '../src/sidequest.js';
 
 test('reject invalid options before touching the page', () => {
   for (const options of [{ size: 0 }, { speed: NaN }, { maxTurkeys: 1.5 }, { maxTurkeys: 0 }, { jumpDistance: -1 }, { jumpHeight: Infinity }, { spawnInterval: [20, 10] }, { lifetime: [0, 100] }, { lifetime: 'fast' }, { poopInterval: [0, 100] }, { poopInterval: true }, { poopInterval: [200, 100] }, { poopLifetime: 0 }, {cowboy:'yes'}, {cowboySize:0}, {cowboySpeed:Infinity}, {roastLifetime:0}, {autoShotInterval:[0,1]}, {autoShotInterval:[20,10]}, {autoShotAccuracy:-.1}, {autoShotAccuracy:1.1}, {onTurkeyHit:true}, {onShot:true}]) {
@@ -28,9 +28,9 @@ test('classic build exposes the same supported public API', async () => {
   const { readFile } = await import('node:fs/promises');
   const { runInNewContext } = await import('node:vm');
   const context = { window: {} };
-  runInNewContext(await readFile(new URL('../dist/turkeys.js', import.meta.url), 'utf8'), context);
-  assert.deepEqual(Object.keys(context.window.TinyTurkeys).sort(),['cowboySVG','createOrcGame','createTurkeys','orcSVG','roastSVG','turkeySVG']);
-  assert.equal(context.window.TinyTurkeys.cowboySVG(), cowboySVG());
+  runInNewContext(await readFile(new URL('../dist/sidequest.js', import.meta.url), 'utf8'), context);
+  assert.deepEqual(Object.keys(context.window.Sidequest).sort(),['cowboySVG','createOrcGame','createTurkeys','orcSVG','roastSVG','turkeySVG']);
+  assert.equal(context.window.Sidequest.cowboySVG(), cowboySVG());
 });
 test('spawn only accepts turkeys', () => {
   assert.throws(()=>createTurkeys().spawn('pilgrim'),TypeError);

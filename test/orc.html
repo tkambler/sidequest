@@ -1,20 +1,20 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Orc browser checks</title><style>body{margin:0;height:1800px;background:#faf7ef;font:14px monospace}#target{position:absolute;left:650px;top:900px;width:240px;height:40px;background:#bbb}#results{position:absolute;top:100px;left:30px}</style></head><body><button id="page-button">Normal page button</button><div id="target" data-orc-target>Target</div><pre id="results">Running…</pre>
 <script type="module">
-import {createOrcGame} from '../dist/turkeys.mjs';
+import {createOrcGame} from '../dist/sidequest.mjs';
 const results=[],originalRandom=Math.random,wait=ms=>new Promise(r=>setTimeout(r,ms));
 const assert=(condition,name)=>{results.push({name,pass:!!condition});if(!condition)throw Error(name)};
 const until=async(predicate,timeout=4000)=>{for(let t=0;t<timeout;t+=20){if(predicate())return true;await wait(20)}return false};
 let game,shots=0,hits=0,clicks=0;const target=document.querySelector('#target'),originalMarkup=target.outerHTML;
 document.querySelector('#page-button').onclick=()=>clicks++;
-const root=()=>document.querySelector('tiny-orcs').shadowRoot;
+const root=()=>document.querySelector('sidequest-orcs').shadowRoot;
 async function setup(options={}){
   Math.random=()=>.75;shots=0;hits=0;
-  game=createOrcGame({targetSelector:'#target',autoShotInterval:[150,150],autoShotAccuracy:1,fireLifetime:900,onShot:()=>shots++,onElementHit:element=>{if(element===target)hits++},respectReducedMotion:false,...options});
+  game=createOrcGame({targetSelector:'#target',autoShotInterval:[400,400],autoShotAccuracy:1,fireLifetime:900,onShot:()=>shots++,onElementHit:element=>{if(element===target)hits++},respectReducedMotion:false,...options});
   game.start();await wait(80);
 }
 try{
   await setup();
-  assert(root().querySelectorAll('.orc').length===1&&!document.querySelector('tiny-turkeys'),'orc is a separate game with one archer');
+  assert(root().querySelectorAll('.orc').length===1&&!document.querySelector('sidequest-turkeys'),'orc is a separate game with one archer');
   assert(!root().querySelector('.cowboy')&&!root().querySelector('.bird')&&root().querySelector('.bow'),'orc scene has a bow and no cowboy or turkey');
   const position=root().querySelector('.orc').style.transform;await wait(60);
   assert(root().querySelector('.orc').style.transform!==position,'orc patrols the viewport floor');
@@ -39,7 +39,7 @@ try{
   window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));assert(!game.controlled,'Escape returns the orc to patrol');
   assert(await until(()=>game.fireCount===1),'patrol resumes firing after control mode ends');
   target.remove();await wait(80);assert(game.fireCount===0&&!root().querySelector('.element-fire'),'removing an element removes its flames');
-  game.stop();assert(!document.querySelector('tiny-orcs')&&!game.controlled,'stop removes the entire orc scene');
+  game.stop();assert(!document.querySelector('sidequest-orcs')&&!game.controlled,'stop removes the entire orc scene');
   document.querySelector('#page-button').click();assert(clicks===2,'stopping removes all page click blockers');
   document.body.append(target);target.style.left='650px';scrollTo(0,0);
   game.start();await wait(80);assert(root().querySelectorAll('.orc').length===1&&!game.controlled,'restart creates one fresh patrol archer');game.destroy();

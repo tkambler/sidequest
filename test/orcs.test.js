@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createOrcGame,orcSVG} from '../src/turkeys.js';
+import {createOrcGame,orcSVG} from '../src/sidequest.js';
 
 test('orc game is idle until explicitly started',()=>{
   const game=createOrcGame();
@@ -18,7 +18,7 @@ test('orc pixel artwork has armor, legs, and a bow with no external artwork',()=
   assert.doesNotMatch(svg,/<image|href=|<script|class="rifle"/);
 });
 test('distributed ES module exports both independent games',async()=>{
-  const library=await import('../dist/turkeys.mjs');
+  const library=await import('../dist/sidequest.mjs');
   assert.equal(typeof library.createTurkeys,'function');assert.equal(typeof library.createOrcGame,'function');
   assert.equal(library.orcSVG(),orcSVG());
 });
